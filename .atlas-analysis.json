@@ -1,0 +1,196 @@
+{
+  "projectType": "framework",
+  "projectName": "Fumadocs",
+  "projectDescription": "A beautiful and flexible React.js documentation framework with support for Next.js, Vite, and other React frameworks.",
+  "theme": "palm",
+  "primaryColor": "#6366F1",
+  "lightColor": "#818CF8",
+  "darkColor": "#4F46E5",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quick-start",
+              "what-is-fumadocs",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/architecture",
+              "concepts/content-sources",
+              "concepts/page-tree",
+              "concepts/routing"
+            ]
+          },
+          {
+            "group": "Framework Integration",
+            "pages": [
+              "frameworks/nextjs",
+              "frameworks/react-router",
+              "frameworks/tanstack-router",
+              "frameworks/waku"
+            ]
+          },
+          {
+            "group": "Content Sources",
+            "pages": [
+              "content/fumadocs-mdx",
+              "content/content-collections",
+              "content/custom-source"
+            ]
+          },
+          {
+            "group": "UI Components",
+            "pages": [
+              "ui/overview",
+              "ui/layouts",
+              "ui/components",
+              "ui/theming",
+              "ui/customization"
+            ]
+          },
+          {
+            "group": "Markdown & MDX",
+            "pages": [
+              "markdown/overview",
+              "markdown/syntax",
+              "markdown/plugins",
+              "markdown/code-blocks",
+              "markdown/twoslash"
+            ]
+          },
+          {
+            "group": "Features",
+            "pages": [
+              "features/search",
+              "features/internationalization",
+              "features/navigation",
+              "features/table-of-contents",
+              "features/breadcrumbs"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/openapi",
+              "integrations/typescript-docgen",
+              "integrations/obsidian",
+              "integrations/og-images"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/overview",
+              "deployment/static-export",
+              "deployment/vercel",
+              "deployment/cloudflare"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "CLI Reference",
+        "groups": [
+          {
+            "group": "CLI",
+            "pages": [
+              "cli/overview",
+              "cli/commands",
+              "cli/configuration"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core API",
+            "pages": [
+              "api/core/source",
+              "api/core/page-tree",
+              "api/core/search",
+              "api/core/toc",
+              "api/core/breadcrumb"
+            ]
+          },
+          {
+            "group": "MDX API",
+            "pages": [
+              "api/mdx/loader",
+              "api/mdx/config",
+              "api/mdx/plugins"
+            ]
+          },
+          {
+            "group": "UI API",
+            "pages": [
+              "api/ui/layouts",
+              "api/ui/components",
+              "api/ui/contexts",
+              "api/ui/utilities"
+            ]
+          },
+          {
+            "group": "OpenAPI",
+            "pages": [
+              "api/openapi/generator",
+              "api/openapi/ui",
+              "api/openapi/playground"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Tutorials",
+            "pages": [
+              "guides/creating-first-doc",
+              "guides/customizing-theme",
+              "guides/adding-search",
+              "guides/multi-docs-setup",
+              "guides/migration-guide"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Framework-agnostic React documentation framework",
+    "Multiple UI component libraries (Radix UI, Base UI)",
+    "Built-in MDX content processing and plugins",
+    "Advanced search with Algolia, Orama, and built-in solutions",
+    "OpenAPI documentation generation",
+    "TypeScript API documentation generation",
+    "Internationalization support",
+    "Multiple layout options (docs, flux, notebook)",
+    "Code syntax highlighting with Shiki",
+    "Static site generation support",
+    "CLI tool for scaffolding and component management"
+  ],
+  "publicApiSurface": [
+    "fumadocs-core - Core library with source adapters, search, TOC, breadcrumbs",
+    "fumadocs-ui - Default UI theme with Radix UI components",
+    "@fumadocs/base-ui - Alternative UI with Base UI components",
+    "fumadocs-mdx - Official MDX content source with bundler integrations",
+    "fumadocs-openapi - OpenAPI spec to MDX documentation generator",
+    "fumadocs-typescript - TypeScript API documentation generator",
+    "fumadocs-twoslash - TypeScript code hover tooltips",
+    "@fumadocs/cli - CLI tool for scaffolding and automation",
+    "create-fumadocs-app - Project scaffolding tool",
+    "@fumadocs/content-collections - Content Collections integration",
+    "@fumadocs/mdx-remote - Remote MDX content support",
+    "@fumadocs/obsidian - Obsidian vault integration"
+  ]
+}
