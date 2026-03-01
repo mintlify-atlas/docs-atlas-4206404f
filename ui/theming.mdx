@@ -1,0 +1,458 @@
+---
+title: Theming
+description: Customize colors, typography, and design tokens
+---
+
+## Overview
+
+Fumadocs UI uses Tailwind CSS v4 with a comprehensive design token system for theming. All components are styled using CSS variables prefixed with `--color-fd-*`, making customization straightforward.
+
+## Setup
+
+### Installation
+
+Fumadocs UI requires Tailwind CSS v4:
+
+```bash
+npm install tailwindcss@next
+```
+
+### Import Styles
+
+```tsx title="app/layout.tsx"
+import 'fumadocs-ui/style.css';
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  );
+}
+```
+
+## Color System
+
+### Design Tokens
+
+Fumadocs uses semantic color tokens that automatically adapt to light and dark modes:
+
+```css title="CSS Variables"
+/* Light mode */
+--color-fd-background: hsl(0, 0%, 96%);
+--color-fd-foreground: hsl(0, 0%, 3.9%);
+--color-fd-muted: hsl(0, 0%, 96.1%);
+--color-fd-muted-foreground: hsl(0, 0%, 45.1%);
+--color-fd-card: hsl(0, 0%, 94.7%);
+--color-fd-card-foreground: hsl(0, 0%, 3.9%);
+--color-fd-popover: hsl(0, 0%, 98%);
+--color-fd-popover-foreground: hsl(0, 0%, 15.1%);
+--color-fd-primary: hsl(0, 0%, 9%);
+--color-fd-primary-foreground: hsl(0, 0%, 98%);
+--color-fd-secondary: hsl(0, 0%, 93.1%);
+--color-fd-secondary-foreground: hsl(0, 0%, 9%);
+--color-fd-accent: hsla(0, 0%, 82%, 50%);
+--color-fd-accent-foreground: hsl(0, 0%, 9%);
+--color-fd-border: hsla(0, 0%, 80%, 50%);
+--color-fd-ring: hsl(0, 0%, 63.9%);
+--color-fd-overlay: hsla(0, 0%, 0%, 0.2);
+
+/* Status colors (static) */
+--color-fd-info: oklch(62.3% 0.214 259.815);
+--color-fd-warning: oklch(76.9% 0.188 70.08);
+--color-fd-error: oklch(63.7% 0.237 25.331);
+--color-fd-success: oklch(72.3% 0.219 149.579);
+--color-fd-idea: oklch(70.5% 0.209 60.849);
+```
+
+### Tailwind Usage
+
+Use the `fd-` prefix to access design tokens:
+
+```tsx
+<div className="bg-fd-background text-fd-foreground">
+  <h1 className="text-fd-primary">Heading</h1>
+  <p className="text-fd-muted-foreground">Muted text</p>
+</div>
+```
+
+## Built-in Themes
+
+Fumadocs provides several pre-built color themes:
+
+<CardGroup cols={3}>
+  <Card title="Neutral" href="#neutral">
+    Default grayscale theme
+  </Card>
+  <Card title="Ocean" href="#ocean">
+    Blue ocean-inspired palette
+  </Card>
+  <Card title="Purple" href="#purple">
+    Vibrant purple theme
+  </Card>
+  <Card title="Emerald" href="#emerald">
+    Fresh green theme
+  </Card>
+  <Card title="Ruby" href="#ruby">
+    Rich red theme
+  </Card>
+  <Card title="Catppuccin" href="#catppuccin">
+    Popular pastel theme
+  </Card>
+  <Card title="Solar" href="#solar">
+    Solarized-inspired theme
+  </Card>
+  <Card title="Dusk" href="#dusk">
+    Soft purple-gray theme
+  </Card>
+  <Card title="Aspen" href="#aspen">
+    Nature-inspired theme
+  </Card>
+</CardGroup>
+
+### Using Built-in Themes
+
+```tsx title="app/layout.tsx"
+// Replace the default style.css with a themed version
+import 'fumadocs-ui/css/ocean.css';
+// or
+import 'fumadocs-ui/css/purple.css';
+// or
+import 'fumadocs-ui/css/emerald.css';
+```
+
+## Custom Themes
+
+### Create a Custom Theme
+
+Override CSS variables in your global CSS file:
+
+```css title="app/globals.css"
+@import 'fumadocs-ui/style.css';
+
+@layer theme {
+  :root {
+    /* Custom light mode colors */
+    --color-fd-primary: hsl(262, 83%, 58%);
+    --color-fd-primary-foreground: hsl(0, 0%, 100%);
+    --color-fd-accent: hsla(262, 83%, 58%, 0.1);
+    --color-fd-accent-foreground: hsl(262, 83%, 58%);
+  }
+
+  .dark {
+    /* Custom dark mode colors */
+    --color-fd-primary: hsl(262, 83%, 68%);
+    --color-fd-primary-foreground: hsl(0, 0%, 9%);
+    --color-fd-accent: hsla(262, 83%, 68%, 0.15);
+    --color-fd-accent-foreground: hsl(262, 83%, 68%);
+  }
+}
+```
+
+### Component-Specific Theming
+
+Target specific components with custom tokens:
+
+```css
+/* Custom sidebar colors */
+.dark #nd-sidebar {
+  --color-fd-muted: hsl(0, 0%, 16%);
+  --color-fd-secondary: hsl(0, 0%, 18%);
+  --color-fd-muted-foreground: hsl(0, 0%, 72%);
+}
+
+/* Custom card styles */
+[data-card] {
+  --color-fd-card: hsl(220, 15%, 95%);
+  --color-fd-border: hsl(220, 15%, 80%);
+}
+```
+
+## Dark Mode
+
+### Setup
+
+Dark mode is enabled by default via `next-themes`:
+
+```tsx title="app/layout.tsx"
+import { RootProvider } from 'fumadocs-ui/provider/base';
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body>
+        <RootProvider
+          theme={{
+            attribute: 'class',
+            defaultTheme: 'system',
+            enableSystem: true,
+          }}
+        >
+          {children}
+        </RootProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+### Theme Toggle Options
+
+```tsx
+<DocsLayout
+  tree={pageTree}
+  themeSwitch={{
+    enabled: true,
+    mode: 'light-dark-system', // or 'light-dark'
+  }}
+/>
+```
+
+### Force Theme
+
+Disable theme switching:
+
+```tsx
+<RootProvider
+  theme={{
+    enabled: false,
+  }}
+>
+  {children}
+</RootProvider>
+```
+
+## Typography
+
+### Font Configuration
+
+Configure fonts in your layout:
+
+```tsx title="app/layout.tsx"
+import { Inter, JetBrains_Mono } from 'next/font/google';
+import { RootProvider } from 'fumadocs-ui/provider/base';
+
+const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
+const mono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' });
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en" className={`${inter.variable} ${mono.variable}`}>
+      <body>
+        <RootProvider>{children}</RootProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+### Tailwind Font Configuration
+
+```css title="app/globals.css"
+@theme {
+  --font-family-sans: var(--font-sans), system-ui, sans-serif;
+  --font-family-mono: var(--font-mono), 'Courier New', monospace;
+}
+```
+
+## Animations
+
+### Built-in Animations
+
+Fumadocs includes several CSS animations:
+
+```css
+/* Collapsible animations */
+--animate-fd-collapsible-down: fd-collapsible-down 150ms cubic-bezier(0.45, 0, 0.55, 1);
+--animate-fd-collapsible-up: fd-collapsible-up 150ms cubic-bezier(0.45, 0, 0.55, 1);
+
+/* Accordion animations */
+--animate-fd-accordion-down: fd-accordion-down 200ms ease-out;
+--animate-fd-accordion-up: fd-accordion-up 200ms ease-out;
+
+/* Navigation menu animations */
+--animate-fd-nav-menu-in: fd-nav-menu-in 200ms ease;
+--animate-fd-nav-menu-out: fd-nav-menu-out 200ms ease;
+```
+
+### Custom Animations
+
+```css
+@keyframes custom-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.custom-animation {
+  animation: custom-fade-in 300ms ease-out;
+}
+```
+
+## Responsive Design
+
+All components use Tailwind's responsive utilities:
+
+```tsx
+<div className="px-4 md:px-6 xl:px-8">
+  <h1 className="text-2xl md:text-3xl xl:text-4xl">Responsive Heading</h1>
+</div>
+```
+
+## CSS Variables Reference
+
+### Color Tokens
+
+<TypeTable
+  type={{
+    'fd-background': {
+      type: 'color',
+      description: 'Main background color',
+    },
+    'fd-foreground': {
+      type: 'color',
+      description: 'Main text color',
+    },
+    'fd-muted': {
+      type: 'color',
+      description: 'Muted background color',
+    },
+    'fd-muted-foreground': {
+      type: 'color',
+      description: 'Muted text color',
+    },
+    'fd-card': {
+      type: 'color',
+      description: 'Card background color',
+    },
+    'fd-card-foreground': {
+      type: 'color',
+      description: 'Card text color',
+    },
+    'fd-primary': {
+      type: 'color',
+      description: 'Primary brand color',
+    },
+    'fd-primary-foreground': {
+      type: 'color',
+      description: 'Text color on primary background',
+    },
+    'fd-border': {
+      type: 'color',
+      description: 'Border color',
+    },
+    'fd-ring': {
+      type: 'color',
+      description: 'Focus ring color',
+    },
+  }}
+/>
+
+### Layout Variables
+
+<TypeTable
+  type={{
+    'fd-banner-height': {
+      type: 'length',
+      default: '0px',
+      description: 'Height of banner component',
+    },
+    'fd-header-height': {
+      type: 'length',
+      default: '3.5rem',
+      description: 'Height of layout header',
+    },
+    'fd-toc-width': {
+      type: 'length',
+      default: '268px',
+      description: 'Width of table of contents sidebar',
+    },
+  }}
+/>
+
+## Advanced Customization
+
+### Per-Component Theming
+
+```css
+/* Custom callout colors */
+.callout[data-type="custom"] {
+  --callout-color: hsl(280, 100%, 70%);
+  border-left: 3px solid var(--callout-color);
+}
+
+/* Custom code block styles */
+.shiki {
+  --color-fd-card: hsl(220, 13%, 13%);
+  border-radius: 12px;
+}
+```
+
+### Gradient Backgrounds
+
+```css
+.gradient-background {
+  background: linear-gradient(
+    135deg,
+    var(--color-fd-primary) 0%,
+    var(--color-fd-accent) 100%
+  );
+}
+```
+
+## Best Practices
+
+<Callout type="info" title="Theming Tips">
+  1. Always test your theme in both light and dark modes
+  2. Use semantic tokens (`fd-primary`, `fd-muted`) instead of direct colors
+  3. Maintain sufficient contrast ratios for accessibility (WCAG AA: 4.5:1)
+  4. Use HSL color format for easier adjustments
+  5. Test with real content to ensure readability
+</Callout>
+
+## Examples
+
+### Brand Color Theme
+
+```css title="app/globals.css"
+@import 'fumadocs-ui/style.css';
+
+@layer theme {
+  :root {
+    --color-fd-primary: hsl(217, 91%, 60%);
+    --color-fd-primary-foreground: hsl(0, 0%, 100%);
+    --color-fd-accent: hsla(217, 91%, 60%, 0.1);
+    --color-fd-accent-foreground: hsl(217, 91%, 60%);
+  }
+
+  .dark {
+    --color-fd-primary: hsl(217, 91%, 70%);
+    --color-fd-accent: hsla(217, 91%, 70%, 0.15);
+  }
+}
+```
+
+### High Contrast Theme
+
+```css
+@layer theme {
+  .high-contrast {
+    --color-fd-background: hsl(0, 0%, 100%);
+    --color-fd-foreground: hsl(0, 0%, 0%);
+    --color-fd-border: hsl(0, 0%, 0%);
+    --color-fd-primary: hsl(0, 0%, 0%);
+  }
+
+  .dark.high-contrast {
+    --color-fd-background: hsl(0, 0%, 0%);
+    --color-fd-foreground: hsl(0, 0%, 100%);
+    --color-fd-border: hsl(0, 0%, 100%);
+    --color-fd-primary: hsl(0, 0%, 100%);
+  }
+}
+```

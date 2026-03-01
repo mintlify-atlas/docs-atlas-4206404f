@@ -1,0 +1,504 @@
+---
+title: Navigation & Sidebar
+description: Configure documentation navigation with folders, links, and tabs
+---
+
+Fumadocs provides a flexible navigation system with sidebar support for organizing your documentation content.
+
+## Page Tree
+
+The page tree is the core data structure for navigation:
+
+```ts
+interface Root {
+  $id?: string; // Unique ID
+  name: ReactNode;
+  children: Node[];
+  fallback?: Root; // Alternative tree for unlisted pages
+}
+
+type Node = Item | Separator | Folder;
+
+interface Item {
+  $id?: string;
+  type: 'page';
+  name: ReactNode;
+  url: string;
+  external?: boolean;
+  description?: ReactNode;
+  icon?: ReactNode;
+}
+
+interface Folder {
+  $id?: string;
+  type: 'folder';
+  name: ReactNode;
+  description?: ReactNode;
+  root?: boolean; // Root-level folder
+  defaultOpen?: boolean;
+  collapsible?: boolean;
+  index?: Item; // Index page for folder
+  icon?: ReactNode;
+  children: Node[];
+}
+
+interface Separator {
+  $id?: string;
+  type: 'separator';
+  name?: ReactNode;
+  icon?: ReactNode;
+}
+```
+
+## Sidebar Setup
+
+### Basic Sidebar
+
+```tsx title="app/docs/layout.tsx"
+import { DocsLayout } from 'fumadocs-ui/layout';
+import { source } from '@/lib/source';
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  const tree = source.getPageTree();
+
+  return (
+    <DocsLayout tree={tree}>
+      {children}
+    </DocsLayout>
+  );
+}
+```
+
+### Sidebar Provider
+
+For custom implementations:
+
+```tsx
+import {
+  SidebarProvider,
+  useSidebar
+} from 'fumadocs-ui/components/sidebar';
+
+function CustomLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <SidebarProvider defaultOpenLevel={1} prefetch={true}>
+      <Sidebar />
+      {children}
+    </SidebarProvider>
+  );
+}
+```
+
+**Provider Options:**
+```ts
+interface SidebarProviderProps {
+  /**
+   * Open folders by default if their level is lower or equal
+   * @defaultValue 0
+   */
+  defaultOpenLevel?: number;
+
+  /**
+   * Prefetch links
+   */
+  prefetch?: boolean;
+
+  children?: ReactNode;
+}
+```
+
+## Sidebar Components
+
+### Sidebar Items
+
+```tsx
+import {
+  SidebarItem,
+  SidebarFolder,
+  SidebarFolderLink,
+  SidebarFolderTrigger,
+  SidebarFolderContent,
+  SidebarSeparator
+} from 'fumadocs-ui/components/sidebar';
+
+function CustomSidebar() {
+  return (
+    <div>
+      <SidebarItem href="/docs/intro" active={true} icon={<HomeIcon />}>
+        Introduction
+      </SidebarItem>
+
+      <SidebarSeparator>
+        Getting Started
+      </SidebarSeparator>
+
+      <SidebarFolder defaultOpen={true} collapsible={true}>
+        <SidebarFolderLink href="/docs/guides" active={false}>
+          Guides
+        </SidebarFolderLink>
+        <SidebarFolderContent>
+          <SidebarItem href="/docs/guides/installation">
+            Installation
+          </SidebarItem>
+          <SidebarItem href="/docs/guides/configuration">
+            Configuration
+          </SidebarItem>
+        </SidebarFolderContent>
+      </SidebarFolder>
+    </div>
+  );
+}
+```
+
+### Folder Without Index
+
+For folders without an index page, use trigger:
+
+```tsx
+<SidebarFolder collapsible={true}>
+  <SidebarFolderTrigger>
+    <FolderIcon />
+    Advanced Topics
+  </SidebarFolderTrigger>
+  <SidebarFolderContent>
+    {/* Folder items */}
+  </SidebarFolderContent>
+</SidebarFolder>
+```
+
+## Page Tree Renderer
+
+Automatically render sidebar from page tree:
+
+```tsx
+import { SidebarPageTree } from 'fumadocs-ui/components/sidebar';
+import { source } from '@/lib/source';
+
+export function Sidebar() {
+  const tree = source.getPageTree();
+
+  return (
+    <TreeProvider tree={tree}>
+      <SidebarPageTree />
+    </TreeProvider>
+  );
+}
+```
+
+### Custom Renderers
+
+Customize how nodes are rendered:
+
+```tsx
+import type { SidebarPageTreeComponents } from 'fumadocs-ui/components/sidebar';
+
+const customComponents: Partial<SidebarPageTreeComponents> = {
+  Item: ({ item }) => (
+    <a href={item.url} className="custom-item">
+      {item.icon}
+      {item.name}
+      {item.description && <span>{item.description}</span>}
+    </a>
+  ),
+  Folder: ({ item, children }) => (
+    <div className="custom-folder">
+      <div className="folder-header">
+        {item.icon}
+        {item.name}
+      </div>
+      <div className="folder-children">{children}</div>
+    </div>
+  ),
+  Separator: ({ item }) => (
+    <div className="custom-separator">
+      {item.icon}
+      {item.name}
+    </div>
+  )
+};
+
+function CustomSidebar() {
+  return <SidebarPageTree {...customComponents} />;
+}
+```
+
+## Sidebar State
+
+### useSidebar Hook
+
+```tsx
+import { useSidebar } from 'fumadocs-ui/components/sidebar';
+
+function SidebarToggle() {
+  const {
+    open,
+    setOpen,
+    collapsed,
+    setCollapsed,
+    closeOnRedirect,
+    defaultOpenLevel,
+    prefetch,
+    mode // 'drawer' | 'full'
+  } = useSidebar();
+
+  return (
+    <button onClick={() => setOpen(!open)}>
+      Toggle Sidebar
+    </button>
+  );
+}
+```
+
+### useFolder Hook
+
+Access folder state within a folder:
+
+```tsx
+import { useFolder } from 'fumadocs-ui/components/sidebar';
+
+function CustomFolderContent() {
+  const folder = useFolder();
+
+  if (!folder) return null;
+
+  return (
+    <div>
+      Folder is {folder.open ? 'open' : 'closed'}
+      Depth: {folder.depth}
+    </div>
+  );
+}
+```
+
+## Sidebar Tabs
+
+Organize documentation into tabs:
+
+```tsx
+import { getSidebarTabs } from 'fumadocs-ui/components/sidebar/tabs';
+import { source } from '@/lib/source';
+
+const tree = source.getPageTree();
+const tabs = getSidebarTabs(tree);
+
+// Returns:
+// [
+//   {
+//     title: 'Guides',
+//     url: '/docs/guides',
+//     icon: <Icon />,
+//     urls: Set(['/docs/guides', '/docs/guides/intro', ...])
+//   },
+//   { ... }
+// ]
+```
+
+**Tab Interface:**
+```ts
+interface SidebarTab {
+  url: string; // Redirect URL
+  icon?: ReactNode;
+  title: ReactNode;
+  description?: ReactNode;
+  urls?: Set<string>; // All URLs in this tab
+  unlisted?: boolean; // From fallback tree
+}
+```
+
+### Custom Tab Transform
+
+```tsx
+import { getSidebarTabs } from 'fumadocs-ui/components/sidebar/tabs';
+
+const tabs = getSidebarTabs(tree, {
+  transform: (tab, node) => {
+    // Filter out certain tabs
+    if (node.name === 'Internal') return null;
+
+    // Add custom properties
+    return {
+      ...tab,
+      icon: <CustomIcon name={node.name} />,
+      badge: node.children.length
+    };
+  }
+});
+```
+
+## Responsive Behavior
+
+### Mobile Drawer
+
+On mobile (`< 768px`), sidebar becomes a drawer:
+
+```tsx
+import {
+  SidebarDrawerOverlay,
+  SidebarDrawerContent,
+  SidebarTrigger
+} from 'fumadocs-ui/components/sidebar';
+
+function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      <SidebarTrigger>Open Menu</SidebarTrigger>
+      <SidebarDrawerOverlay />
+      <SidebarDrawerContent>
+        {/* Sidebar content */}
+      </SidebarDrawerContent>
+      <main>{children}</main>
+    </>
+  );
+}
+```
+
+### Collapsible Sidebar
+
+Collapse sidebar on desktop:
+
+```tsx
+import { SidebarCollapseTrigger } from 'fumadocs-ui/components/sidebar';
+
+function Header() {
+  return (
+    <SidebarCollapseTrigger>
+      <ChevronIcon />
+    </SidebarCollapseTrigger>
+  );
+}
+```
+
+### Sidebar Content
+
+Handle collapsed state:
+
+```tsx
+import { SidebarContent } from 'fumadocs-ui/components/sidebar';
+
+function CustomSidebar() {
+  return (
+    <SidebarContent mode="full">
+      {({ ref, collapsed, hovered, onPointerEnter, onPointerLeave }) => (
+        <aside
+          ref={ref}
+          data-collapsed={collapsed}
+          data-hovered={hovered}
+          onPointerEnter={onPointerEnter}
+          onPointerLeave={onPointerLeave}
+        >
+          {/* Sidebar items */}
+        </aside>
+      )}
+    </SidebarContent>
+  );
+}
+```
+
+## Sidebar Viewport
+
+Scrollable area for sidebar content:
+
+```tsx
+import { SidebarViewport } from 'fumadocs-ui/components/sidebar';
+
+function Sidebar() {
+  return (
+    <SidebarViewport>
+      <SidebarPageTree />
+    </SidebarViewport>
+  );
+}
+```
+
+## Active State
+
+Sidebar items automatically detect active state:
+
+```tsx
+import { isActive } from 'fumadocs-ui/utils/urls';
+import { usePathname } from 'next/navigation';
+
+function CustomItem({ url }: { url: string }) {
+  const pathname = usePathname();
+  const active = isActive(url, pathname);
+
+  return (
+    <a href={url} data-active={active}>
+      Link
+    </a>
+  );
+}
+```
+
+## Auto Scroll
+
+Active items automatically scroll into view:
+
+```tsx
+import { useAutoScroll } from 'fumadocs-ui/components/sidebar';
+import { useRef } from 'react';
+
+function CustomItem({ active }: { active: boolean }) {
+  const ref = useRef<HTMLAnchorElement>(null);
+  useAutoScroll(active, ref);
+
+  return <a ref={ref}>Item</a>;
+}
+```
+
+## External Links
+
+Mark external links:
+
+```tsx
+<SidebarItem href="https://example.com" external={true}>
+  External Link
+</SidebarItem>
+```
+
+External links use `<a>` instead of Next.js `<Link>` and show an icon.
+
+## Folder Depth
+
+Get current folder nesting level:
+
+```tsx
+import { useFolderDepth } from 'fumadocs-ui/components/sidebar';
+
+function CustomItem() {
+  const depth = useFolderDepth();
+  const indent = depth * 16;
+
+  return <div style={{ paddingLeft: indent }}>Item</div>;
+}
+```
+
+## Close on Redirect
+
+Control sidebar behavior on navigation:
+
+```tsx
+import { useSidebar } from 'fumadocs-ui/components/sidebar';
+
+function CustomLink() {
+  const { closeOnRedirect } = useSidebar();
+
+  const handleClick = () => {
+    // Don't close sidebar on this navigation
+    closeOnRedirect.current = false;
+  };
+
+  return <a onClick={handleClick}>Stay Open</a>;
+}
+```
+
+## Best Practices
+
+1. **Root Folders**: Use `root: true` for top-level sections to enable tabs
+2. **Default Open**: Set `defaultOpenLevel` based on your content depth
+3. **Collapsible**: Make deep folders collapsible for better UX
+4. **Icons**: Add icons to folders and items for visual hierarchy
+5. **Index Pages**: Provide index pages for folders when possible
+6. **Separators**: Use separators to group related content
+7. **Active State**: Trust automatic active detection instead of manual state
+8. **Prefetch**: Enable prefetch for faster navigation

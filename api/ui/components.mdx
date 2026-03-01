@@ -1,0 +1,483 @@
+---
+title: Components
+description: UI components for documentation content in Fumadocs
+---
+
+## Accordion
+
+Collapsible content sections with support for anchoring.
+
+```tsx
+import { Accordions, Accordion } from 'fumadocs-ui/components/accordion';
+```
+
+### Accordions Props
+
+<ParamField path="type" type="'single' | 'multiple'">
+  Control whether one or multiple items can be open (default: `'single'`)
+</ParamField>
+
+<ParamField path="defaultValue" type="string | string[]">
+  Default opened accordion value(s)
+</ParamField>
+
+### Accordion Props
+
+<ParamField path="title" type="string | ReactNode" required>
+  Accordion title displayed in the header
+</ParamField>
+
+<ParamField path="value" type="string">
+  Unique value for the accordion item (defaults to stringified title)
+</ParamField>
+
+<ParamField path="id" type="string">
+  HTML id for deep linking
+</ParamField>
+
+### Usage
+
+```tsx
+<Accordions type="single">
+  <Accordion title="What is Fumadocs?" id="what-is-fumadocs">
+    Fumadocs is a documentation framework for Next.js.
+  </Accordion>
+  <Accordion title="How do I get started?">
+    Check out our getting started guide.
+  </Accordion>
+</Accordions>
+```
+
+---
+
+## Banner
+
+Sticky banner for announcements with optional dismissal.
+
+```tsx
+import { Banner } from 'fumadocs-ui/components/banner';
+```
+
+### Props
+
+<ParamField path="id" type="string">
+  Unique identifier for localStorage persistence
+</ParamField>
+
+<ParamField path="variant" type="'rainbow' | 'normal'">
+  Banner style variant (default: `'normal'`)
+</ParamField>
+
+<ParamField path="height" type="string">
+  Banner height (default: `'3rem'`)
+</ParamField>
+
+<ParamField path="rainbowColors" type="string[]">
+  Custom colors for rainbow variant
+</ParamField>
+
+<ParamField path="changeLayout" type="boolean">
+  Adjust layout spacing for banner (default: `true`)
+</ParamField>
+
+### Usage
+
+```tsx
+<Banner id="announcement-2024" variant="rainbow">
+  🎉 New feature released! <a href="/blog">Learn more</a>
+</Banner>
+```
+
+---
+
+## Callout
+
+Highlight important information with styled callouts.
+
+```tsx
+import { Callout } from 'fumadocs-ui/components/callout';
+```
+
+### Props
+
+<ParamField path="type" type="'info' | 'warn' | 'error' | 'success' | 'warning' | 'idea'">
+  Callout type determining icon and color (default: `'info'`)
+</ParamField>
+
+<ParamField path="title" type="ReactNode">
+  Callout title
+</ParamField>
+
+<ParamField path="icon" type="ReactNode">
+  Custom icon to override default
+</ParamField>
+
+### Usage
+
+```tsx
+<Callout type="warn" title="Warning">
+  This action cannot be undone.
+</Callout>
+
+<Callout type="info">
+  This is an informational message.
+</Callout>
+```
+
+---
+
+## Card & Cards
+
+Grid layout for displaying cards with links.
+
+```tsx
+import { Cards, Card } from 'fumadocs-ui/components/card';
+```
+
+### Card Props
+
+<ParamField path="title" type="ReactNode" required>
+  Card title
+</ParamField>
+
+<ParamField path="description" type="ReactNode">
+  Card description text
+</ParamField>
+
+<ParamField path="icon" type="ReactNode">
+  Icon displayed at the top of the card
+</ParamField>
+
+<ParamField path="href" type="string">
+  Link URL (makes card clickable)
+</ParamField>
+
+<ParamField path="external" type="boolean">
+  Open link in new tab
+</ParamField>
+
+### Usage
+
+```tsx
+<Cards>
+  <Card 
+    title="Getting Started" 
+    description="Learn the basics"
+    icon={<BookIcon />}
+    href="/docs/getting-started"
+  />
+  <Card 
+    title="API Reference" 
+    description="Explore the API"
+    href="/docs/api"
+  />
+</Cards>
+```
+
+---
+
+## CodeBlock
+
+Syntax-highlighted code blocks with copy functionality.
+
+```tsx
+import { CodeBlock, Pre } from 'fumadocs-ui/components/codeblock';
+```
+
+### CodeBlock Props
+
+<ParamField path="title" type="string">
+  Code block title/filename
+</ParamField>
+
+<ParamField path="icon" type="ReactNode">
+  Icon or HTML string for title bar
+</ParamField>
+
+<ParamField path="allowCopy" type="boolean">
+  Show copy button (default: `true`)
+</ParamField>
+
+<ParamField path="keepBackground" type="boolean">
+  Preserve Shiki/Rehype Code background (default: `false`)
+</ParamField>
+
+<ParamField path="data-line-numbers" type="boolean">
+  Show line numbers
+</ParamField>
+
+<ParamField path="data-line-numbers-start" type="number">
+  Starting line number (default: `1`)
+</ParamField>
+
+<ParamField path="Actions" type="Component">
+  Custom actions component for toolbar
+</ParamField>
+
+### Usage
+
+```tsx
+<CodeBlock title="example.ts" data-line-numbers>
+  <Pre>
+    <code>{`const hello = "world";`}</code>
+  </Pre>
+</CodeBlock>
+```
+
+---
+
+## CodeBlock Tabs
+
+Tabbed interface for multiple code examples.
+
+```tsx
+import { 
+  CodeBlockTabs, 
+  CodeBlockTabsList,
+  CodeBlockTabsTrigger,
+  CodeBlockTab 
+} from 'fumadocs-ui/components/codeblock';
+```
+
+### Usage
+
+```tsx
+<CodeBlockTabs defaultValue="npm">
+  <CodeBlockTabsList>
+    <CodeBlockTabsTrigger value="npm">npm</CodeBlockTabsTrigger>
+    <CodeBlockTabsTrigger value="pnpm">pnpm</CodeBlockTabsTrigger>
+  </CodeBlockTabsList>
+  <CodeBlockTab value="npm">
+    <CodeBlock>
+      <Pre><code>npm install fumadocs</code></Pre>
+    </CodeBlock>
+  </CodeBlockTab>
+  <CodeBlockTab value="pnpm">
+    <CodeBlock>
+      <Pre><code>pnpm add fumadocs</code></Pre>
+    </CodeBlock>
+  </CodeBlockTab>
+</CodeBlockTabs>
+```
+
+---
+
+## Files & File/Folder
+
+File tree visualization component.
+
+```tsx
+import { Files, File, Folder } from 'fumadocs-ui/components/files';
+```
+
+### File Props
+
+<ParamField path="name" type="string" required>
+  File name
+</ParamField>
+
+<ParamField path="icon" type="ReactNode">
+  Custom file icon
+</ParamField>
+
+### Folder Props
+
+<ParamField path="name" type="string" required>
+  Folder name
+</ParamField>
+
+<ParamField path="defaultOpen" type="boolean">
+  Open folder by default (default: `false`)
+</ParamField>
+
+<ParamField path="disabled" type="boolean">
+  Disable folder interaction
+</ParamField>
+
+### Usage
+
+```tsx
+<Files>
+  <Folder name="src" defaultOpen>
+    <File name="index.ts" />
+    <File name="app.ts" />
+  </Folder>
+  <File name="package.json" />
+</Files>
+```
+
+---
+
+## ImageZoom
+
+Zoomable images with `react-medium-image-zoom`.
+
+```tsx
+import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
+```
+
+### Props
+
+Extends Next.js `ImageProps`
+
+<ParamField path="zoomInProps" type="ComponentProps<'img'>">
+  Image props when zoomed in
+</ParamField>
+
+<ParamField path="rmiz" type="UncontrolledProps">
+  Props for `react-medium-image-zoom`
+</ParamField>
+
+### Usage
+
+```tsx
+<ImageZoom 
+  src="/screenshot.png" 
+  alt="Screenshot" 
+  width={800}
+  height={600}
+/>
+```
+
+---
+
+## Steps & Step
+
+Sequential step-by-step instructions.
+
+```tsx
+import { Steps, Step } from 'fumadocs-ui/components/steps';
+```
+
+### Usage
+
+```tsx
+<Steps>
+  <Step>
+    ## Install the package
+    
+    Run the installation command.
+  </Step>
+  <Step>
+    ## Configure your app
+    
+    Add the configuration file.
+  </Step>
+</Steps>
+```
+
+---
+
+## Tabs & Tab
+
+Tabbed content interface.
+
+```tsx
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+```
+
+### Tabs Props
+
+<ParamField path="items" type="string[]">
+  Array of tab labels (simple mode)
+</ParamField>
+
+<ParamField path="defaultIndex" type="number">
+  Default selected tab index when using `items` (default: `0`)
+</ParamField>
+
+<ParamField path="label" type="ReactNode">
+  Additional label in tab list
+</ParamField>
+
+### Tab Props
+
+<ParamField path="value" type="string">
+  Tab value (auto-detected from index if using `items`)
+</ParamField>
+
+### Usage
+
+```tsx
+<Tabs items={['Preview', 'Code']}>
+  <Tab>
+    <ComponentPreview />
+  </Tab>
+  <Tab>
+    <CodeExample />
+  </Tab>
+</Tabs>
+```
+
+---
+
+## TypeTable
+
+Display TypeScript prop types with expandable details.
+
+```tsx
+import { TypeTable } from 'fumadocs-ui/components/type-table';
+```
+
+### Props
+
+<ParamField path="type" type="Record<string, TypeNode>" required>
+  Object mapping prop names to type definitions
+</ParamField>
+
+### TypeNode Interface
+
+<ParamField path="type" type="ReactNode" required>
+  Short type signature
+</ParamField>
+
+<ParamField path="description" type="ReactNode">
+  Field description
+</ParamField>
+
+<ParamField path="typeDescription" type="ReactNode">
+  Full type signature
+</ParamField>
+
+<ParamField path="typeDescriptionLink" type="string">
+  Link for the type
+</ParamField>
+
+<ParamField path="default" type="ReactNode">
+  Default value
+</ParamField>
+
+<ParamField path="required" type="boolean">
+  Mark field as required
+</ParamField>
+
+<ParamField path="deprecated" type="boolean">
+  Mark field as deprecated
+</ParamField>
+
+<ParamField path="parameters" type="ParameterNode[]">
+  Function parameters
+</ParamField>
+
+<ParamField path="returns" type="ReactNode">
+  Function return type
+</ParamField>
+
+### Usage
+
+```tsx
+<TypeTable
+  type={{
+    name: {
+      type: 'string',
+      description: 'Component name',
+      required: true
+    },
+    size: {
+      type: "'sm' | 'md' | 'lg'",
+      description: 'Component size',
+      default: "'md'"
+    }
+  }}
+/>
+```

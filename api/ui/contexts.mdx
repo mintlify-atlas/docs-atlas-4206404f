@@ -1,0 +1,401 @@
+---
+title: Contexts
+description: React Context providers for global state in Fumadocs UI
+---
+
+## I18nProvider
+
+Provides internationalization context for Fumadocs UI.
+
+```tsx
+import { I18nProvider } from 'fumadocs-ui/contexts/i18n';
+```
+
+### Props
+
+<ParamField path="locale" type="string" required>
+  Current locale code (e.g., `'en'`, `'fr'`)
+</ParamField>
+
+<ParamField path="locales" type="LocaleItem[]">
+  Available language options
+  
+  ```tsx
+  interface LocaleItem {
+    name: string;    // Display name
+    locale: string;  // Locale code
+  }
+  ```
+</ParamField>
+
+<ParamField path="translations" type="Partial<Translations>">
+  Custom translations for UI strings
+  
+  Available keys:
+  - `search` - "Search"
+  - `searchNoResult` - "No results found"
+  - `toc` - "On this page"
+  - `tocNoHeadings` - "No Headings"
+  - `lastUpdate` - "Last updated on"
+  - `chooseLanguage` - "Choose a language"
+  - `nextPage` - "Next Page"
+  - `previousPage` - "Previous Page"
+  - `chooseTheme` - "Theme"
+  - `editOnGithub` - "Edit on GitHub"
+</ParamField>
+
+<ParamField path="onLocaleChange" type="(locale: string) => void">
+  Custom locale change handler (default: automatic URL-based navigation)
+</ParamField>
+
+### Usage
+
+```tsx
+import { I18nProvider } from 'fumadocs-ui/contexts/i18n';
+
+export default function RootLayout({ children }) {
+  return (
+    <I18nProvider
+      locale="en"
+      locales={[
+        { name: 'English', locale: 'en' },
+        { name: 'Français', locale: 'fr' },
+        { name: '日本語', locale: 'ja' }
+      ]}
+      translations={{
+        search: 'Search documentation',
+        toc: 'Table of Contents'
+      }}
+    >
+      {children}
+    </I18nProvider>
+  );
+}
+```
+
+---
+
+## useI18n
+
+Access internationalization context.
+
+```tsx
+import { useI18n } from 'fumadocs-ui/contexts/i18n';
+```
+
+### Returns
+
+<ParamField path="locale" type="string | undefined">
+  Current locale
+</ParamField>
+
+<ParamField path="locales" type="LocaleItem[] | undefined">
+  Available locales
+</ParamField>
+
+<ParamField path="text" type="Translations">
+  Translated UI strings
+</ParamField>
+
+<ParamField path="onChange" type="(locale: string) => void | undefined">
+  Locale change handler
+</ParamField>
+
+### Usage
+
+```tsx
+function MyComponent() {
+  const { text, locale, onChange } = useI18n();
+  
+  return (
+    <div>
+      <p>{text.search}</p>
+      <button onClick={() => onChange?.('fr')}>
+        Switch to French
+      </button>
+    </div>
+  );
+}
+```
+
+---
+
+## I18nLabel
+
+Render a translated label.
+
+```tsx
+import { I18nLabel } from 'fumadocs-ui/contexts/i18n';
+```
+
+### Props
+
+<ParamField path="label" type="keyof Translations" required>
+  Translation key to display
+</ParamField>
+
+### Usage
+
+```tsx
+<I18nLabel label="toc" />
+// Renders: "On this page" (or translated equivalent)
+```
+
+---
+
+## SearchProvider
+
+Provides search dialog functionality with keyboard shortcuts.
+
+```tsx
+import { SearchProvider } from 'fumadocs-ui/contexts/search';
+```
+
+### Props
+
+<ParamField path="SearchDialog" type="ComponentType<SharedProps>" required>
+  Search dialog component receiving `open` and `onOpenChange` props
+</ParamField>
+
+<ParamField path="links" type="SearchLink[]">
+  Custom links displayed when search is empty
+  
+  ```tsx
+  type SearchLink = [name: string, href: string];
+  ```
+</ParamField>
+
+<ParamField path="hotKey" type="HotKey[]">
+  Keyboard shortcuts for opening search (default: Cmd/Ctrl + K)
+  
+  ```tsx
+  interface HotKey {
+    display: ReactNode;
+    key: string | ((e: KeyboardEvent) => boolean);
+  }
+  ```
+</ParamField>
+
+<ParamField path="preload" type="boolean">
+  Preload search dialog before opening (default: `true`)
+</ParamField>
+
+<ParamField path="options" type="object">
+  Additional props passed to SearchDialog
+</ParamField>
+
+### Usage
+
+```tsx
+import { SearchProvider } from 'fumadocs-ui/contexts/search';
+import dynamic from 'next/dynamic';
+
+const SearchDialog = dynamic(() => import('@/components/search'));
+
+export default function RootLayout({ children }) {
+  return (
+    <SearchProvider
+      SearchDialog={SearchDialog}
+      links={[
+        ['Getting Started', '/docs'],
+        ['API Reference', '/docs/api']
+      ]}
+    >
+      {children}
+    </SearchProvider>
+  );
+}
+```
+
+---
+
+## useSearchContext
+
+Access search context.
+
+```tsx
+import { useSearchContext } from 'fumadocs-ui/contexts/search';
+```
+
+### Returns
+
+<ParamField path="enabled" type="boolean">
+  Whether search is enabled
+</ParamField>
+
+<ParamField path="open" type="boolean">
+  Current search dialog open state
+</ParamField>
+
+<ParamField path="hotKey" type="HotKey[]">
+  Configured keyboard shortcuts
+</ParamField>
+
+<ParamField path="setOpenSearch" type="(open: boolean) => void">
+  Function to control search dialog state
+</ParamField>
+
+### Usage
+
+```tsx
+function SearchButton() {
+  const { setOpenSearch, hotKey } = useSearchContext();
+  
+  return (
+    <button onClick={() => setOpenSearch(true)}>
+      Search {hotKey.map(k => k.display).join(' ')}
+    </button>
+  );
+}
+```
+
+---
+
+## SearchOnly
+
+Conditionally render children only when search is enabled.
+
+```tsx
+import { SearchOnly } from 'fumadocs-ui/contexts/search';
+```
+
+### Usage
+
+```tsx
+<SearchOnly>
+  <SearchButton />
+</SearchOnly>
+```
+
+---
+
+## TreeContextProvider
+
+Provides page tree context for navigation.
+
+```tsx
+import { TreeContextProvider } from 'fumadocs-ui/contexts/tree';
+```
+
+### Props
+
+<ParamField path="tree" type="PageTree.Root" required>
+  Page tree structure from fumadocs-core
+</ParamField>
+
+### Usage
+
+```tsx
+import { TreeContextProvider } from 'fumadocs-ui/contexts/tree';
+import { pageTree } from '@/lib/source';
+
+export default function Layout({ children }) {
+  return (
+    <TreeContextProvider tree={pageTree}>
+      {children}
+    </TreeContextProvider>
+  );
+}
+```
+
+---
+
+## useTreeContext
+
+Access page tree context.
+
+```tsx
+import { useTreeContext } from 'fumadocs-ui/contexts/tree';
+```
+
+### Returns
+
+<ParamField path="root" type="PageTree.Root | PageTree.Folder">
+  Current root node in the tree (may be a folder if using nested roots)
+</ParamField>
+
+<ParamField path="full" type="PageTree.Root">
+  Complete page tree
+</ParamField>
+
+### Usage
+
+```tsx
+function NavigationTree() {
+  const { root } = useTreeContext();
+  
+  return (
+    <nav>
+      {root.children.map(node => (
+        <NavItem key={node.url} node={node} />
+      ))}
+    </nav>
+  );
+}
+```
+
+---
+
+## useTreePath
+
+Get the current page's path in the tree.
+
+```tsx
+import { useTreePath } from 'fumadocs-ui/contexts/tree';
+```
+
+### Returns
+
+`PageTree.Node[]` - Array of nodes from root to current page
+
+### Usage
+
+```tsx
+function Breadcrumb() {
+  const path = useTreePath();
+  
+  return (
+    <nav>
+      {path.map((node, i) => (
+        <span key={i}>
+          {node.type === 'page' && node.name}
+          {i < path.length - 1 && ' / '}
+        </span>
+      ))}
+    </nav>
+  );
+}
+```
+
+---
+
+## Context Architecture
+
+Fumadocs UI contexts work together to provide a complete documentation experience:
+
+```tsx
+import { I18nProvider } from 'fumadocs-ui/contexts/i18n';
+import { SearchProvider } from 'fumadocs-ui/contexts/search';
+import { TreeContextProvider } from 'fumadocs-ui/contexts/tree';
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+import { pageTree } from '@/lib/source';
+
+export default function RootLayout({ children }) {
+  return (
+    <I18nProvider
+      locale="en"
+      locales={[
+        { name: 'English', locale: 'en' },
+        { name: 'Spanish', locale: 'es' }
+      ]}
+    >
+      <SearchProvider SearchDialog={SearchDialog}>
+        <DocsLayout tree={pageTree}>
+          {/* TreeContextProvider is included in DocsLayout */}
+          {children}
+        </DocsLayout>
+      </SearchProvider>
+    </I18nProvider>
+  );
+}
+```

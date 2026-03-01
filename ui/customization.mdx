@@ -1,0 +1,661 @@
+---
+title: Customization
+description: Advanced customization patterns and component overrides
+---
+
+## Overview
+
+Fumadocs UI is built with customization in mind. Every component can be extended, styled, or completely replaced to match your brand and requirements.
+
+## Component Overrides
+
+### Replace Layout Components
+
+Replace entire sections of layouts with custom components:
+
+```tsx title="app/docs/layout.tsx"
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+import { CustomSidebar } from '@/components/custom-sidebar';
+
+export default function Layout({ children }) {
+  return (
+    <DocsLayout
+      tree={pageTree}
+      sidebar={{
+        component: <CustomSidebar />,
+      }}
+    >
+      {children}
+    </DocsLayout>
+  );
+}
+```
+
+### Override Sidebar Components
+
+Customize individual parts of the sidebar:
+
+```tsx
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+import { CustomFolderNode, CustomSeparator } from '@/components/sidebar';
+
+export default function Layout({ children }) {
+  return (
+    <DocsLayout
+      tree={pageTree}
+      sidebar={{
+        components: {
+          Folder: CustomFolderNode,
+          Separator: CustomSeparator,
+        },
+      }}
+    >
+      {children}
+    </DocsLayout>
+  );
+}
+```
+
+### Custom Navigation
+
+```tsx
+function CustomNav() {
+  return (
+    <nav className="flex items-center gap-4">
+      <Link href="/" className="font-bold text-lg">
+        My Docs
+      </Link>
+      <div className="flex-1" />
+      <Link href="/blog">Blog</Link>
+      <Link href="/about">About</Link>
+    </nav>
+  );
+}
+
+<DocsLayout
+  tree={pageTree}
+  nav={{
+    component: <CustomNav />,
+  }}
+/>
+```
+
+## Styling Patterns
+
+### Extend Component Styles
+
+Use className props to extend component styles:
+
+```tsx
+<Card
+  title="Custom Styled Card"
+  className="border-2 border-blue-500 shadow-xl hover:shadow-2xl transition-shadow"
+>
+  Custom content
+</Card>
+```
+
+### CSS Modules
+
+```tsx title="components/custom-callout.tsx"
+import { Callout } from 'fumadocs-ui/components/callout';
+import styles from './custom-callout.module.css';
+
+export function CustomCallout({ children, ...props }) {
+  return (
+    <Callout {...props} className={styles.callout}>
+      {children}
+    </Callout>
+  );
+}
+```
+
+```css title="components/custom-callout.module.css"
+.callout {
+  border-radius: 16px;
+  padding: 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+```
+
+### Tailwind Classes
+
+```tsx
+<CodeBlock
+  title="app.tsx"
+  className="rounded-2xl shadow-2xl border-2 border-purple-500"
+  viewportProps={{
+    className: "max-h-[800px] text-base",
+  }}
+>
+  {/* code */}
+</CodeBlock>
+```
+
+## Custom Components
+
+### Create Custom MDX Components
+
+```tsx title="components/custom-components.tsx"
+export function CustomHeading({ children, id, ...props }) {
+  return (
+    <h2
+      id={id}
+      className="group relative text-3xl font-bold mb-4"
+      {...props}
+    >
+      <a
+        href={`#${id}`}
+        className="absolute -left-8 opacity-0 group-hover:opacity-100 transition-opacity"
+      >
+        #
+      </a>
+      {children}
+    </h2>
+  );
+}
+
+export function CustomLink({ href, children }) {
+  const isExternal = href?.startsWith('http');
+  
+  return (
+    <a
+      href={href}
+      className="text-blue-600 hover:text-blue-800 underline"
+      target={isExternal ? '_blank' : undefined}
+      rel={isExternal ? 'noopener noreferrer' : undefined}
+    >
+      {children}
+      {isExternal && ' ↗'}
+    </a>
+  );
+}
+```
+
+### Use in MDX
+
+```tsx title="mdx-components.tsx"
+import { CustomHeading, CustomLink } from '@/components/custom-components';
+
+export function useMDXComponents(components) {
+  return {
+    h2: CustomHeading,
+    a: CustomLink,
+    ...components,
+  };
+}
+```
+
+## Layout Customization
+
+### Multi-column Layout
+
+```tsx title="app/docs/[...slug]/page.tsx"
+import { DocsPage, DocsBody } from 'fumadocs-ui/layouts/docs/page';
+
+export default function Page({ params }) {
+  const page = getPage(params.slug);
+  
+  return (
+    <DocsPage
+      toc={page.data.toc}
+      full={true}
+      className="max-w-[1400px]"
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2">
+          <DocsBody>{page.data.body}</DocsBody>
+        </div>
+        <aside className="lg:col-span-1">
+          <div className="sticky top-20">
+            <h3>Quick Links</h3>
+            {/* Custom sidebar content */}
+          </div>
+        </aside>
+      </div>
+    </DocsPage>
+  );
+}
+```
+
+### Custom Page Footer
+
+```tsx
+import { DocsPage } from 'fumadocs-ui/layouts/docs/page';
+import { CustomFooter } from '@/components/custom-footer';
+
+export default function Page({ params }) {
+  return (
+    <DocsPage
+      toc={page.data.toc}
+      footer={{
+        enabled: true,
+        component: <CustomFooter />,
+      }}
+    >
+      {/* content */}
+    </DocsPage>
+  );
+}
+```
+
+### Custom Breadcrumb
+
+```tsx
+function CustomBreadcrumb() {
+  const pathname = usePathname();
+  const segments = pathname.split('/').filter(Boolean);
+  
+  return (
+    <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+      <Link href="/">Home</Link>
+      {segments.map((segment, i) => (
+        <>
+          <span>/</span>
+          <Link href={`/${segments.slice(0, i + 1).join('/')}`}>
+            {segment}
+          </Link>
+        </>
+      ))}
+    </nav>
+  );
+}
+
+<DocsPage
+  breadcrumb={{
+    enabled: true,
+    component: <CustomBreadcrumb />,
+  }}
+/>
+```
+
+## Search Customization
+
+### Custom Search Component
+
+```tsx title="components/custom-search.tsx"
+'use client';
+
+import { useSearchContext } from 'fumadocs-ui/contexts/search';
+import { Search } from 'lucide-react';
+
+export function CustomSearchToggle() {
+  const { setOpenSearch } = useSearchContext();
+  
+  return (
+    <button
+      onClick={() => setOpenSearch(true)}
+      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted hover:bg-accent"
+    >
+      <Search className="size-4" />
+      <span>Search docs...</span>
+      <kbd className="ml-auto">⌘K</kbd>
+    </button>
+  );
+}
+```
+
+### Use Custom Search
+
+```tsx
+import { CustomSearchToggle } from '@/components/custom-search';
+
+<DocsLayout
+  tree={pageTree}
+  searchToggle={{
+    enabled: true,
+    components: {
+      lg: <CustomSearchToggle />,
+      sm: <CustomSearchToggle />,
+    },
+  }}
+/>
+```
+
+## Advanced Patterns
+
+### Conditional Sidebar Content
+
+```tsx
+import { usePathname } from 'next/navigation';
+
+function DynamicSidebarBanner() {
+  const pathname = usePathname();
+  const isApiSection = pathname.startsWith('/docs/api');
+  
+  if (isApiSection) {
+    return (
+      <div className="p-4 bg-blue-500 text-white rounded-lg">
+        <h3>API Reference</h3>
+        <p>You're viewing API documentation</p>
+      </div>
+    );
+  }
+  
+  return null;
+}
+
+<DocsLayout
+  tree={pageTree}
+  sidebar={{
+    banner: <DynamicSidebarBanner />,
+  }}
+/>
+```
+
+### Custom Table of Contents
+
+```tsx title="components/custom-toc.tsx"
+import { useTOC } from 'fumadocs-core/toc';
+
+export function CustomTOC() {
+  const { items, activeAnchor } = useTOC();
+  
+  return (
+    <div className="space-y-2">
+      <h3 className="font-bold text-sm">On this page</h3>
+      <ul className="space-y-1">
+        {items.map((item) => (
+          <li key={item.url} style={{ paddingLeft: `${item.depth * 12}px` }}>
+            <a
+              href={item.url}
+              className={cn(
+                'text-sm hover:text-foreground transition-colors',
+                activeAnchor === item.url
+                  ? 'text-primary font-medium'
+                  : 'text-muted-foreground'
+              )}
+            >
+              {item.title}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+```tsx
+<DocsPage
+  toc={page.data.toc}
+  tableOfContent={{
+    enabled: true,
+    component: <CustomTOC />,
+  }}
+/>
+```
+
+### Version Switcher
+
+```tsx
+function VersionSwitcher() {
+  const [version, setVersion] = useState('v2');
+  
+  return (
+    <select
+      value={version}
+      onChange={(e) => setVersion(e.target.value)}
+      className="px-3 py-2 rounded-lg bg-muted"
+    >
+      <option value="v2">v2.0 (Latest)</option>
+      <option value="v1">v1.0</option>
+    </select>
+  );
+}
+
+<DocsLayout
+  tree={pageTree}
+  sidebar={{
+    banner: <VersionSwitcher />,
+  }}
+/>
+```
+
+## Provider Customization
+
+### Custom Root Provider
+
+```tsx title="app/layout.tsx"
+import { RootProvider } from 'fumadocs-ui/provider/base';
+import { Analytics } from '@/components/analytics';
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body>
+        <RootProvider
+          theme={{
+            defaultTheme: 'dark',
+            enableSystem: false,
+          }}
+          search={{
+            enabled: true,
+            options: {
+              type: 'static',
+            },
+          }}
+        >
+          {children}
+          <Analytics />
+        </RootProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+### Custom I18n Provider
+
+```tsx
+import { RootProvider } from 'fumadocs-ui/provider/base';
+
+const translations = {
+  en: {
+    search: 'Search',
+    toc: 'On this page',
+    lastUpdate: 'Last updated',
+  },
+  es: {
+    search: 'Buscar',
+    toc: 'En esta página',
+    lastUpdate: 'Última actualización',
+  },
+};
+
+<RootProvider
+  i18n={{
+    locale: 'es',
+    translations: translations.es,
+  }}
+>
+  {children}
+</RootProvider>
+```
+
+## Tailwind Configuration
+
+### Extend Tailwind Theme
+
+```ts title="tailwind.config.ts"
+import type { Config } from 'tailwindcss';
+
+const config: Config = {
+  content: [
+    './app/**/*.{ts,tsx}',
+    './components/**/*.{ts,tsx}',
+    './node_modules/fumadocs-ui/dist/**/*.js',
+  ],
+  theme: {
+    extend: {
+      colors: {
+        brand: {
+          50: '#f5f3ff',
+          500: '#8b5cf6',
+          900: '#4c1d95',
+        },
+      },
+      fontFamily: {
+        display: ['var(--font-display)', 'sans-serif'],
+      },
+    },
+  },
+};
+
+export default config;
+```
+
+### Custom Utilities
+
+```css title="app/globals.css"
+@layer utilities {
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-pink-500;
+  }
+  
+  .glass-effect {
+    @apply backdrop-blur-lg bg-white/10 border border-white/20;
+  }
+}
+```
+
+## Component Recipes
+
+### Feature Card Grid
+
+```mdx
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 my-8">
+  <Card
+    title="Fast"
+    icon={<Zap className="text-yellow-500" />}
+    className="hover:scale-105 transition-transform"
+  >
+    Optimized for performance
+  </Card>
+  <Card
+    title="Accessible"
+    icon={<Heart className="text-red-500" />}
+    className="hover:scale-105 transition-transform"
+  >
+    Built with a11y in mind
+  </Card>
+  <Card
+    title="Customizable"
+    icon={<Palette className="text-blue-500" />}
+    className="hover:scale-105 transition-transform"
+  >
+    Style it your way
+  </Card>
+</div>
+```
+
+### Code Comparison
+
+Use tabs to show before/after code examples:
+
+<Tabs items={['Before', 'After']}>
+  <Tab value="Before">
+    ```ts title="old-code.ts"
+    // Legacy implementation
+    function oldWay() {
+      // complex code
+    }
+    ```
+  </Tab>
+  <Tab value="After">
+    ```ts title="new-code.ts"
+    // Modern approach
+    const newWay = () => {
+      // simplified code
+    };
+    ```
+  </Tab>
+</Tabs>
+
+### Interactive Demo
+
+```tsx title="components/interactive-demo.tsx"
+'use client';
+
+import { useState } from 'react';
+import { Card } from 'fumadocs-ui/components/card';
+
+export function InteractiveDemo() {
+  const [count, setCount] = useState(0);
+  
+  return (
+    <Card
+      title="Interactive Counter"
+      className="not-prose"
+    >
+      <div className="flex items-center gap-4 p-4">
+        <button
+          onClick={() => setCount(c => c - 1)}
+          className="px-4 py-2 bg-red-500 text-white rounded"
+        >
+          -
+        </button>
+        <span className="text-2xl font-bold">{count}</span>
+        <button
+          onClick={() => setCount(c => c + 1)}
+          className="px-4 py-2 bg-green-500 text-white rounded"
+        >
+          +
+        </button>
+      </div>
+    </Card>
+  );
+}
+```
+
+## Best Practices
+
+<Callout type="success" title="Customization Tips">
+  1. **Start with built-in options** before creating custom components
+  2. **Use className props** for simple styling changes
+  3. **Create wrapper components** for repeated customizations
+  4. **Maintain accessibility** when overriding components
+  5. **Test across breakpoints** for responsive designs
+  6. **Use TypeScript** for type-safe customizations
+  7. **Document custom components** for team collaboration
+</Callout>
+
+## Troubleshooting
+
+### Styles Not Applying
+
+Ensure your custom CSS is imported after fumadocs styles:
+
+```tsx
+import 'fumadocs-ui/style.css';
+import './globals.css'; // Your custom styles
+```
+
+### Component Not Rendering
+
+Check that you're importing from the correct path:
+
+```tsx
+// ✅ Correct
+import { Card } from 'fumadocs-ui/components/card';
+
+// ❌ Incorrect
+import { Card } from 'fumadocs-ui';
+```
+
+### TypeScript Errors
+
+Extend component props properly:
+
+```tsx
+import type { CardProps } from 'fumadocs-ui/components/card';
+
+interface CustomCardProps extends CardProps {
+  customProp?: string;
+}
+
+export function CustomCard({ customProp, ...props }: CustomCardProps) {
+  return <Card {...props} />;
+}
+```

@@ -1,0 +1,479 @@
+---
+title: Fumadocs MDX
+description: The built-in content source for Fumadocs with file-based collections
+---
+
+Fumadocs MDX is the official content source for Fumadocs. It provides a powerful file-based content management system with TypeScript-first configuration, automatic type generation, and support for multiple bundlers.
+
+## Installation
+
+<CodeGroup>
+```bash npm
+npm install fumadocs-mdx fumadocs-core
+```
+
+```bash pnpm
+pnpm add fumadocs-mdx fumadocs-core
+```
+
+```bash yarn
+yarn add fumadocs-mdx fumadocs-core
+```
+</CodeGroup>
+
+## Quick Start
+
+Create a `source.config.ts` file in your project root:
+
+```ts title="source.config.ts"
+import { defineConfig, defineDocs } from 'fumadocs-mdx/config';
+
+export const docs = defineDocs({
+  dir: 'content/docs',
+});
+
+export default defineConfig();
+```
+
+Create your source loader:
+
+```ts title="lib/source.ts"
+import { docs } from 'fumadocs-mdx:collections/server';
+import { loader } from 'fumadocs-core/source';
+
+export const source = loader({
+  baseUrl: '/docs',
+  source: docs.toFumadocsSource(),
+});
+```
+
+## Collections
+
+Fumadocs MDX supports three types of collections:
+
+### Docs Collection
+
+The most common type, combining both page documents and metadata files:
+
+```ts title="source.config.ts"
+import { defineDocs } from 'fumadocs-mdx/config';
+import { pageSchema, metaSchema } from 'fumadocs-core/source/schema';
+import { z } from 'zod';
+
+export const docs = defineDocs({
+  dir: 'content/docs',
+  docs: {
+    schema: pageSchema.extend({
+      author: z.string().optional(),
+      date: z.date().optional(),
+    }),
+  },
+  meta: {
+    schema: metaSchema.extend({
+      description: z.string().optional(),
+    }),
+  },
+});
+```
+
+### Doc Collection
+
+For standalone MDX documents without folder metadata:
+
+```ts title="source.config.ts"
+import { defineCollections } from 'fumadocs-mdx/config';
+import { pageSchema } from 'fumadocs-core/source/schema';
+import { z } from 'zod';
+
+export const blog = defineCollections({
+  type: 'doc',
+  dir: 'content/blog',
+  schema: pageSchema.extend({
+    author: z.string(),
+    date: z.date(),
+  }),
+});
+```
+
+### Meta Collection
+
+For metadata-only collections (JSON/YAML files):
+
+```ts title="source.config.ts"
+import { defineCollections } from 'fumadocs-mdx/config';
+import { z } from 'zod';
+
+export const navigation = defineCollections({
+  type: 'meta',
+  dir: 'content/nav',
+  schema: z.object({
+    title: z.string(),
+    items: z.array(z.string()),
+  }),
+});
+```
+
+## Configuration Options
+
+### Collection Options
+
+<CodeGroup>
+```ts title="Doc Collection"
+export const docs = defineDocs({
+  dir: 'content/docs',
+  docs: {
+    // Glob patterns for included files
+    files: ['**/*.mdx', '**/*.md'],
+    
+    // Custom schema
+    schema: pageSchema,
+    
+    // MDX compilation options
+    async mdxOptions(environment) {
+      return {
+        remarkPlugins: [],
+        rehypePlugins: [],
+      };
+    },
+    
+    // Postprocessing options
+    postprocess: {
+      includeProcessedMarkdown: true,
+      extractLinkReferences: true,
+      valueToExport: ['toc', 'structuredData'],
+    },
+    
+    // Load documents asynchronously
+    async: true,
+    
+    // Compile on-demand (for large sites)
+    dynamic: false,
+  },
+  meta: {
+    schema: metaSchema,
+  },
+});
+```
+
+```ts title="Global Config"
+export default defineConfig({
+  // Global MDX options
+  mdxOptions: {
+    preset: 'fumadocs', // or 'minimal'
+    remarkPlugins: [],
+    rehypePlugins: [],
+  },
+  
+  // Plugins
+  plugins: [
+    jsonSchema({ insert: true }),
+    lastModified(),
+  ],
+  
+  // Workspaces
+  workspaces: {
+    api: {
+      dir: 'packages/api',
+      config: {
+        docs: defineDocs({ dir: 'docs' }),
+      },
+    },
+  },
+});
+```
+</CodeGroup>
+
+## MDX Preset Options
+
+The `applyMdxPreset` function configures MDX processing with Fumadocs defaults:
+
+```ts title="source.config.ts"
+import { applyMdxPreset } from 'fumadocs-mdx/config';
+
+export const docs = defineDocs({
+  docs: {
+    async mdxOptions(environment) {
+      return applyMdxPreset({
+        // Code highlighting
+        rehypeCodeOptions: {
+          themes: {
+            light: 'github-light',
+            dark: 'github-dark',
+          },
+        },
+        
+        // Heading configuration
+        remarkHeadingOptions: {
+          generateToc: true,
+        },
+        
+        // Image handling
+        remarkImageOptions: {
+          useImport: true,
+        },
+        
+        // Code tabs
+        remarkCodeTabOptions: {
+          parseMdx: true,
+        },
+        
+        // Package manager tabs
+        remarkNpmOptions: {
+          persist: {
+            id: 'package-manager',
+          },
+        },
+        
+        // Structured data for search
+        remarkStructureOptions: {
+          exportAs: 'structuredData',
+        },
+        
+        // Export additional vfile data
+        valueToExport: ['toc', 'structuredData'],
+      })(environment);
+    },
+  },
+});
+```
+
+## Postprocessing
+
+Control how MDX content is processed and what data is extracted:
+
+```ts title="source.config.ts"
+export const docs = defineDocs({
+  docs: {
+    postprocess: {
+      // Include processed markdown text
+      includeProcessedMarkdown: true,
+      
+      // Include MDAST (Markdown AST)
+      includeMDAST: false,
+      
+      // Extract link references for analysis
+      extractLinkReferences: true,
+      
+      // Export additional values from vfile.data
+      valueToExport: ['elementIds'],
+    },
+  },
+});
+```
+
+## Async and Dynamic Loading
+
+### Async Loading
+
+Load documents asynchronously for better performance:
+
+```ts title="source.config.ts"
+export const docs = defineDocs({
+  docs: {
+    async: true,
+  },
+});
+```
+
+With async loading, you need to call `load()` to access the document body:
+
+```tsx title="app/docs/[[...slug]]/page.tsx"
+import { source } from '@/lib/source';
+
+export default async function Page({ params }) {
+  const page = source.getPage(params.slug);
+  if (!page) notFound();
+  
+  // Load the body content
+  const { body } = await page.data.load();
+  
+  return <body />;
+}
+```
+
+### Dynamic Compilation
+
+Compile MDX on-demand for very large documentation sites:
+
+```ts title="source.config.ts"
+export const docs = defineDocs({
+  docs: {
+    dynamic: true,
+  },
+});
+```
+
+## Plugins
+
+Fumadocs MDX includes several built-in plugins:
+
+### JSON Schema Plugin
+
+Generate JSON schemas for your collections:
+
+```ts title="source.config.ts"
+import jsonSchema from 'fumadocs-mdx/plugins/json-schema';
+
+export default defineConfig({
+  plugins: [
+    jsonSchema({
+      // Insert $schema field automatically
+      insert: true,
+    }),
+  ],
+});
+```
+
+### Last Modified Plugin
+
+Add last modified timestamps using Git:
+
+```ts title="source.config.ts"
+import lastModified from 'fumadocs-mdx/plugins/last-modified';
+
+export default defineConfig({
+  plugins: [lastModified()],
+});
+```
+
+## Framework Integration
+
+### Next.js
+
+Add the plugin to `next.config.mjs`:
+
+```js title="next.config.mjs"
+import { createMDX } from 'fumadocs-mdx/next';
+
+const withMDX = createMDX();
+
+/** @type {import('next').NextConfig} */
+const config = {
+  reactStrictMode: true,
+};
+
+export default withMDX(config);
+```
+
+### Vite
+
+Add the plugin to `vite.config.ts`:
+
+```ts title="vite.config.ts"
+import { defineConfig } from 'vite';
+import { fumadocsMDX } from 'fumadocs-mdx/vite';
+
+export default defineConfig({
+  plugins: [fumadocsMDX()],
+});
+```
+
+### Node.js
+
+Use the Node.js loader:
+
+```bash
+node --import fumadocs-mdx/node/loader your-script.js
+```
+
+### Bun
+
+Configure the Bun plugin:
+
+```ts title="bunfig.toml"
+import { plugin } from 'bun';
+import { createBunPlugin } from 'fumadocs-mdx/bun';
+
+plugin(createBunPlugin());
+```
+
+## Using the Source
+
+Once configured, use the loader API to access your content:
+
+```ts title="lib/source.ts"
+import { docs } from 'fumadocs-mdx:collections/server';
+import { loader } from 'fumadocs-core/source';
+
+export const source = loader({
+  baseUrl: '/docs',
+  source: docs.toFumadocsSource(),
+});
+```
+
+```tsx title="app/docs/[[...slug]]/page.tsx"
+import { source } from '@/lib/source';
+import { notFound } from 'next/navigation';
+
+export default async function Page({ params }) {
+  const page = source.getPage(params.slug);
+  if (!page) notFound();
+  
+  return (
+    <div>
+      <h1>{page.data.title}</h1>
+      <page.data.body />
+    </div>
+  );
+}
+
+export function generateStaticParams() {
+  return source.generateParams();
+}
+```
+
+## Type Safety
+
+Fumadocs MDX automatically generates TypeScript types for your collections:
+
+```ts
+import type { InferPageType } from 'fumadocs-core/source';
+import type { source } from '@/lib/source';
+
+// Infer the page type from your source
+type Page = InferPageType<typeof source>;
+
+function processPage(page: Page) {
+  // TypeScript knows about your custom schema fields
+  console.log(page.data.title);
+  console.log(page.data.author); // if you added this field
+}
+```
+
+## Workspaces
+
+Organize multiple documentation sites in a monorepo:
+
+```ts title="source.config.ts"
+import { defineConfig, defineDocs } from 'fumadocs-mdx/config';
+
+export const docs = defineDocs({ dir: 'content/docs' });
+
+export default defineConfig({
+  workspaces: {
+    api: {
+      dir: 'packages/api',
+      config: {
+        apiDocs: defineDocs({ dir: 'docs' }),
+      },
+    },
+    cli: {
+      dir: 'packages/cli',
+      config: {
+        cliDocs: defineDocs({ dir: 'docs' }),
+      },
+    },
+  },
+});
+```
+
+## Migration from Content Collections
+
+If you're migrating from Content Collections:
+
+1. Replace `content-collections.ts` with `source.config.ts`
+2. Update collection definitions to use `defineDocs` or `defineCollections`
+3. Replace `createMDXSource` with `docs.toFumadocsSource()`
+4. Update your framework integration (Next.js plugin, etc.)
+
+See the [Content Collections](/docs/content/content-collections) page for adapter information.

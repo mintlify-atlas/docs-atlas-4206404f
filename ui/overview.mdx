@@ -1,0 +1,212 @@
+---
+title: Overview
+description: Introduction to Fumadocs UI components and packages
+---
+
+## Introduction
+
+Fumadocs provides two UI packages for building beautiful documentation sites with different component primitives:
+
+<Cards>
+  <Card
+    title="fumadocs-ui"
+    description="Built on Radix UI primitives with full accessibility support"
+    href="#fumadocs-ui"
+  />
+  <Card
+    title="@fumadocs/base-ui"
+    description="Built on Base UI (React Aria) for headless component architecture"
+    href="#fumadocs-base-ui"
+  />
+</Cards>
+
+## fumadocs-ui
+
+The primary UI package built with Radix UI primitives, providing a complete set of accessible, customizable components.
+
+### Installation
+
+```bash
+npm install fumadocs-ui
+```
+
+### Features
+
+- **Radix UI Primitives**: Built on battle-tested [@radix-ui](https://www.radix-ui.com/) components
+- **Three Layout Options**: Choose between docs, flux, and notebook layouts
+- **Fully Styled**: Pre-styled components with Tailwind CSS
+- **Accessible**: WCAG compliant with keyboard navigation and screen reader support
+- **Customizable**: Extensive theming with CSS variables
+- **TypeScript**: Full type safety with TypeScript definitions
+
+### Package Exports
+
+```tsx
+// Layouts
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+import { DocsLayout as FluxLayout } from 'fumadocs-ui/layouts/flux';
+import { DocsLayout as NotebookLayout } from 'fumadocs-ui/layouts/notebook';
+
+// Page components
+import { DocsPage } from 'fumadocs-ui/layouts/docs/page';
+
+// UI Components
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
+import { Banner } from 'fumadocs-ui/components/banner';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Card, Cards } from 'fumadocs-ui/components/card';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+
+// Providers
+import { RootProvider } from 'fumadocs-ui/provider/base';
+
+// Styles
+import 'fumadocs-ui/style.css';
+```
+
+## @fumadocs/base-ui
+
+An alternative UI package built with Base UI (React Aria), offering the same features with a different component foundation.
+
+### Installation
+
+```bash
+npm install @fumadocs/base-ui
+```
+
+### Features
+
+- **Base UI Primitives**: Built on [@base-ui/react](https://base-ui.com/)
+- **Same API**: Identical component API to fumadocs-ui
+- **Headless Architecture**: More flexible for advanced customization
+- **Accessibility**: Built on React Aria for robust a11y
+
+### When to Use
+
+<Callout type="info">
+  Use `@fumadocs/base-ui` if you:
+  - Prefer React Aria's architecture
+  - Need more control over component internals
+  - Are already using Base UI in your project
+  
+  Otherwise, `fumadocs-ui` is recommended for most use cases.
+</Callout>
+
+## Quick Start
+
+### 1. Install Dependencies
+
+```bash
+npm install fumadocs-ui fumadocs-core
+```
+
+### 2. Setup Root Provider
+
+```tsx title="app/layout.tsx"
+import { RootProvider } from 'fumadocs-ui/provider/base';
+import 'fumadocs-ui/style.css';
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body>
+        <RootProvider>{children}</RootProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+### 3. Create a Documentation Layout
+
+```tsx title="app/docs/layout.tsx"
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+import { pageTree } from '@/lib/source';
+
+export default function Layout({ children }) {
+  return (
+    <DocsLayout tree={pageTree}>
+      {children}
+    </DocsLayout>
+  );
+}
+```
+
+### 4. Create a Documentation Page
+
+```tsx title="app/docs/[...slug]/page.tsx"
+import { DocsPage, DocsBody } from 'fumadocs-ui/layouts/docs/page';
+import { getPage } from '@/lib/source';
+
+export default function Page({ params }) {
+  const page = getPage(params.slug);
+  
+  return (
+    <DocsPage toc={page.data.toc}>
+      <DocsBody>{page.data.body}</DocsBody>
+    </DocsPage>
+  );
+}
+```
+
+## Core Concepts
+
+### Component Architecture
+
+Fumadocs UI follows a modular architecture:
+
+- **Layouts**: Full-page layouts with navigation, sidebar, and content areas
+- **Page Components**: Structured page layouts with TOC, breadcrumbs, and footer
+- **UI Components**: Reusable components for MDX content (cards, callouts, tabs, etc.)
+- **Primitives**: Low-level UI components (buttons, accordions, dialogs)
+
+### Styling System
+
+All components use Tailwind CSS with a custom design token system:
+
+- CSS variables for theming (`--color-fd-*`)
+- Responsive utilities for all breakpoints
+- Dark mode support via `next-themes`
+- Custom animations and transitions
+
+### Accessibility
+
+Every component is built with accessibility in mind:
+
+- Semantic HTML elements
+- ARIA attributes and roles
+- Keyboard navigation support
+- Screen reader compatibility
+- Focus management
+
+## Version Information
+
+Current version: **16.6.8**
+
+Both packages are maintained in the same monorepo and share the same version numbers.
+
+## Next Steps
+
+<Cards>
+  <Card
+    title="Layouts"
+    description="Learn about the three layout options and their configuration"
+    href="/ui/layouts"
+  />
+  <Card
+    title="Components"
+    description="Explore all available UI components with examples"
+    href="/ui/components"
+  />
+  <Card
+    title="Theming"
+    description="Customize colors, fonts, and design tokens"
+    href="/ui/theming"
+  />
+  <Card
+    title="Customization"
+    description="Advanced customization patterns and recipes"
+    href="/ui/customization"
+  />
+</Cards>

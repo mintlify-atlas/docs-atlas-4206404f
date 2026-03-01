@@ -1,0 +1,508 @@
+---
+title: Search
+description: Implement powerful search functionality with built-in, Algolia, or Orama Cloud
+---
+
+Fumadocs provides flexible search solutions for your documentation site, supporting multiple backends including built-in search with Orama, Algolia, and Orama Cloud.
+
+## Search Types
+
+Fumadocs offers two search index types:
+
+### Simple Search
+
+Best for basic documentation sites. Searches across page titles, descriptions, and content.
+
+```ts
+import { createSearchAPI } from 'fumadocs-core/search/server';
+
+export const { GET } = createSearchAPI('simple', {
+  indexes: [
+    {
+      title: 'Getting Started',
+      description: 'Learn how to get started with Fumadocs',
+      content: 'Full page content here...',
+      url: '/docs/getting-started',
+      keywords: 'setup, installation, quickstart'
+    }
+  ]
+});
+```
+
+**Simple Schema:**
+```ts
+interface Index {
+  title: string;
+  description?: string;
+  breadcrumbs?: string[];
+  content: string;
+  url: string;
+  keywords?: string;
+}
+```
+
+### Advanced Search
+
+Provides structured search with heading detection and better relevance. Requires structured data from MDX content.
+
+```ts
+import { createSearchAPI } from 'fumadocs-core/search/server';
+import { source } from '@/lib/source';
+
+export const { GET } = createSearchAPI('advanced', {
+  indexes: source.getPages().map((page) => ({
+    id: page.url,
+    title: page.data.title,
+    description: page.data.description,
+    structuredData: page.data.structuredData,
+    url: page.url,
+    tag: page.data.category,
+    breadcrumbs: ['Docs', page.data.title]
+  }))
+});
+```
+
+**Advanced Schema:**
+```ts
+interface AdvancedIndex {
+  id: string;
+  title: string;
+  description?: string;
+  breadcrumbs?: string[];
+  tag?: string | string[]; // For filtering results
+  structuredData: StructuredData;
+  url: string;
+}
+```
+
+## Built-in Search (Orama)
+
+Fumadocs includes built-in search powered by Orama, a fast in-memory search engine.
+
+### Server Setup
+
+Create a search API endpoint:
+
+```ts title="app/api/search/route.ts"
+import { createFromSource } from 'fumadocs-core/search/server';
+import { source } from '@/lib/source';
+
+export const { GET } = createFromSource(source);
+```
+
+With custom options:
+
+```ts
+import { createFromSource } from 'fumadocs-core/search/server';
+import { source } from '@/lib/source';
+
+export const { GET } = createFromSource(source, {
+  language: 'en',
+  search: {
+    tolerance: 1,
+    boost: {
+      title: 2 // Boost title matches
+    }
+  }
+});
+```
+
+### Client Setup
+
+Use the `useDocsSearch` hook:
+
+```tsx title="components/search.tsx"
+'use client';
+import { useDocsSearch } from 'fumadocs-core/search/client';
+
+export function Search() {
+  const { search, setSearch, query } = useDocsSearch({
+    type: 'fetch',
+    api: '/api/search'
+  });
+
+  return (
+    <div>
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search documentation..."
+      />
+      {query.isLoading && <p>Loading...</p>}
+      {query.data && query.data !== 'empty' && (
+        <div>
+          {query.data.map((result) => (
+            <a key={result.id} href={result.url}>
+              <div dangerouslySetInnerHTML={{ __html: result.content }} />
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### Static Search
+
+For static site generation, export search indexes and load them on the client:
+
+```ts title="app/api/search/route.ts"
+import { createFromSource } from 'fumadocs-core/search/server';
+import { source } from '@/lib/source';
+
+const api = createFromSource(source);
+
+export const GET = api.staticGET; // Export static indexes
+```
+
+Client usage:
+
+```tsx
+import { useDocsSearch } from 'fumadocs-core/search/client';
+
+const { search, setSearch, query } = useDocsSearch({
+  type: 'static',
+  from: '/api/search' // Downloads indexes once
+});
+```
+
+**Result Types:**
+```ts
+interface SortedResult {
+  id: string;
+  url: string;
+  type: 'page' | 'heading' | 'text';
+  content: string; // Includes <mark> tags for highlights
+  breadcrumbs?: string[];
+}
+```
+
+## Algolia Integration
+
+### Sync Documents
+
+Sync your documents to Algolia:
+
+```ts title="scripts/sync-search.ts"
+import algoliasearch from 'algoliasearch';
+import { sync } from 'fumadocs-core/search/algolia';
+import { source } from '@/lib/source';
+
+const client = algoliasearch(
+  process.env.ALGOLIA_APP_ID!,
+  process.env.ALGOLIA_API_KEY!
+);
+
+await sync(client, {
+  indexName: 'documentation',
+  documents: source.getPages().map((page) => ({
+    _id: page.url,
+    title: page.data.title,
+    description: page.data.description,
+    url: page.url,
+    structured: page.data.structuredData,
+    tag: page.data.category,
+    breadcrumbs: ['Docs', page.data.title]
+  }))
+});
+```
+
+**Document Schema:**
+```ts
+interface DocumentRecord {
+  _id: string; // Unique document ID
+  title: string;
+  description?: string;
+  breadcrumbs?: string[];
+  url: string;
+  structured: StructuredData;
+  tag?: string; // For filtering
+  extra_data?: object; // Additional fields
+}
+```
+
+### Client Implementation
+
+```tsx
+import { useDocsSearch } from 'fumadocs-core/search/client';
+import { liteClient } from 'algoliasearch/lite';
+
+const algolia = liteClient(
+  process.env.NEXT_PUBLIC_ALGOLIA_APP_ID!,
+  process.env.NEXT_PUBLIC_ALGOLIA_API_KEY!
+);
+
+export function Search() {
+  const { search, setSearch, query } = useDocsSearch({
+    type: 'algolia',
+    client: algolia,
+    indexName: 'documentation',
+    tag: 'guide' // Optional filter
+  });
+
+  // Render search UI...
+}
+```
+
+### Custom Search Handler
+
+```tsx
+import { searchDocs } from 'fumadocs-core/search/client/algolia';
+import { liteClient } from 'algoliasearch/lite';
+
+const client = liteClient(appId, apiKey);
+
+const results = await searchDocs('query', {
+  client,
+  indexName: 'documentation',
+  tag: 'api',
+  onSearch: async (query, tag, locale) => {
+    // Custom search logic
+    return client.searchForHits({
+      requests: [{
+        indexName: 'documentation',
+        query,
+        filters: tag ? `tag:${tag}` : undefined
+      }]
+    });
+  }
+});
+```
+
+## Orama Cloud Integration
+
+### Sync to Orama Cloud
+
+```ts title="scripts/sync-orama.ts"
+import { OramaClient } from '@orama/client';
+import { sync } from 'fumadocs-core/search/orama-cloud';
+import { source } from '@/lib/source';
+
+const orama = new OramaClient({
+  endpoint: process.env.ORAMA_CLOUD_ENDPOINT!,
+  api_key: process.env.ORAMA_PRIVATE_API_KEY!
+});
+
+await sync(orama, {
+  index: 'documentation',
+  documents: source.getPages().map((page) => ({
+    id: page.url,
+    title: page.data.title,
+    description: page.data.description,
+    url: page.url,
+    structured: page.data.structuredData,
+    tag: page.data.category,
+    breadcrumbs: ['Docs', page.data.title]
+  }))
+});
+```
+
+**Orama Document Schema:**
+```ts
+interface OramaDocument {
+  id: string; // Must be unique
+  title: string;
+  description?: string;
+  url: string;
+  structured: StructuredData;
+  tag?: string;
+  extra_data?: object;
+  breadcrumbs?: string[];
+}
+```
+
+### I18n Support
+
+```ts
+import { syncI18n } from 'fumadocs-core/search/orama-cloud';
+
+await syncI18n(orama, {
+  indexes: {
+    en: 'docs-en',
+    es: 'docs-es',
+    fr: 'docs-fr'
+  },
+  documents: [
+    {
+      locale: 'en',
+      items: enPages.map(toDocument)
+    },
+    {
+      locale: 'es',
+      items: esPages.map(toDocument)
+    }
+  ]
+});
+```
+
+### Client Usage
+
+```tsx
+import { useDocsSearch } from 'fumadocs-core/search/client';
+import { OramaClient } from '@orama/client';
+
+const orama = new OramaClient({
+  endpoint: process.env.NEXT_PUBLIC_ORAMA_ENDPOINT!,
+  api_key: process.env.NEXT_PUBLIC_ORAMA_PUBLIC_KEY!
+});
+
+export function Search() {
+  const { search, setSearch, query } = useDocsSearch({
+    type: 'orama-cloud',
+    client: orama,
+    params: {
+      limit: 20,
+      where: { /* custom filters */ }
+    }
+  });
+
+  // Render results...
+}
+```
+
+## I18n Search
+
+Create search indexes for multiple languages:
+
+```ts title="app/api/search/route.ts"
+import { createI18nSearchAPI } from 'fumadocs-core/search/server';
+import { source } from '@/lib/source';
+
+export const { GET } = createI18nSearchAPI('advanced', {
+  i18n: {
+    languages: ['en', 'es', 'fr'],
+    defaultLanguage: 'en'
+  },
+  indexes: source.getPages().map((page) => ({
+    ...page.data,
+    locale: page.locale,
+    structuredData: page.data.structuredData,
+    id: page.url,
+    url: page.url
+  })),
+  localeMap: {
+    en: 'english',
+    es: 'spanish',
+    fr: 'french'
+  }
+});
+```
+
+Client usage with locale:
+
+```tsx
+const { search, setSearch, query } = useDocsSearch({
+  type: 'fetch',
+  api: '/api/search',
+  locale: 'es' // Search in Spanish index
+});
+```
+
+## Tag Filtering
+
+Filter search results by tags:
+
+```tsx
+const { search, setSearch, query } = useDocsSearch({
+  type: 'fetch',
+  api: '/api/search',
+  tag: 'api' // or ['api', 'guide'] for multiple tags
+});
+```
+
+Server-side tag filtering is automatic when using the `tag` field in your indexes.
+
+## Search Options
+
+### Debounce Delay
+
+```tsx
+const { search, setSearch, query } = useDocsSearch(
+  {
+    type: 'fetch',
+    api: '/api/search',
+    delayMs: 300 // Default: 100ms
+  }
+);
+```
+
+### Allow Empty Searches
+
+```tsx
+const { search, setSearch, query } = useDocsSearch(
+  {
+    type: 'fetch',
+    api: '/api/search',
+    allowEmpty: true // Show results even with empty query
+  }
+);
+```
+
+## Content Highlighting
+
+Search results include automatic content highlighting:
+
+```ts
+import { createContentHighlighter } from 'fumadocs-core/search';
+
+const highlighter = createContentHighlighter('search query');
+
+// Returns markdown with <mark> tags
+const highlighted = highlighter.highlightMarkdown('This is search query text');
+// Output: "This is <mark>search</mark> <mark>query</mark> text"
+
+// Or get structured highlights
+const parts = highlighter.highlight('search query here');
+// Returns: [
+//   { type: 'text', content: 'search query', styles: { highlight: true } },
+//   { type: 'text', content: ' here' }
+// ]
+```
+
+## API Reference
+
+### createSearchAPI
+
+```ts
+function createSearchAPI<T extends 'simple' | 'advanced'>(
+  type: T,
+  options: T extends 'simple' ? SimpleOptions : AdvancedOptions
+): SearchAPI;
+```
+
+### useDocsSearch
+
+```ts
+function useDocsSearch(
+  clientOptions: Client & {
+    delayMs?: number;
+    allowEmpty?: boolean;
+  },
+  deps?: DependencyList
+): {
+  search: string;
+  setSearch: (v: string) => void;
+  query: {
+    isLoading: boolean;
+    data?: SortedResult[] | 'empty';
+    error?: Error;
+  };
+};
+```
+
+### SearchAPI Interface
+
+```ts
+interface SearchAPI {
+  search: (query: string, options?: {
+    locale?: string;
+    tag?: string | string[];
+    mode?: 'vector' | 'full';
+  }) => Promise<SortedResult[]>;
+  
+  export: () => Promise<ExportedData>;
+  GET: (request: Request) => Promise<Response>;
+  staticGET: () => Promise<Response>;
+}
+```

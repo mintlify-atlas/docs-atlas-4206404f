@@ -1,0 +1,398 @@
+---
+title: Playground API
+description: Interactive API testing playground component
+---
+
+## APIPlayground
+
+Server-side component for rendering an interactive API playground.
+
+```tsx
+import { APIPlayground } from 'fumadocs-openapi/playground';
+
+<APIPlayground
+  path="/users/{id}"
+  method={methodInformation}
+  ctx={renderContext}
+/>
+```
+
+<ParamField name="path" type="string" required>
+  API endpoint path with parameter placeholders.
+</ParamField>
+
+<ParamField name="method" type="MethodInformation" required>
+  OpenAPI operation object with method details.
+</ParamField>
+
+<ParamField name="ctx" type="RenderContext" required>
+  Render context from `createAPIPage`.
+</ParamField>
+
+## PlaygroundClient
+
+Client-side interactive playground component.
+
+```tsx
+'use client';
+import PlaygroundClient from 'fumadocs-openapi/playground/client';
+
+<PlaygroundClient
+  route="/api/users"
+  method="POST"
+  parameters={parameters}
+  securities={securities}
+  body={bodySchema}
+  references={schemaReferences}
+/>
+```
+
+<ParamField name="route" type="string" required>
+  API endpoint route path.
+</ParamField>
+
+<ParamField name="method" type="string" required>
+  HTTP method: GET, POST, PUT, PATCH, DELETE, etc.
+</ParamField>
+
+<ParamField name="parameters" type="ParameterField[]">
+  Array of API parameters (path, query, header, cookie).
+</ParamField>
+
+<ParamField name="securities" type="SecurityEntry[][]" required>
+  Security schemes for authentication.
+</ParamField>
+
+<ParamField name="body" type="object">
+  Request body schema configuration:
+  
+  ```tsx
+  body={{
+    schema: jsonSchema,
+    mediaType: 'application/json'
+  }}
+  ```
+</ParamField>
+
+<ParamField name="references" type="Record<string, ParsedSchema>" required>
+  Schema references resolver for `$ref` schemas.
+</ParamField>
+
+<ParamField name="proxyUrl" type="string">
+  Proxy URL to avoid CORS issues when testing APIs.
+</ParamField>
+
+<ParamField name="writeOnly" type="boolean">
+  Filter schemas to write-only fields.
+</ParamField>
+
+<ParamField name="readOnly" type="boolean">
+  Filter schemas to read-only fields.
+</ParamField>
+
+## PlaygroundClientOptions
+
+Configuration options for customizing the playground.
+
+```tsx
+interface PlaygroundClientOptions {
+  transformAuthInputs?: (fields: AuthField[]) => AuthField[];
+  requestTimeout?: number;
+  components?: {
+    ResultDisplay?: FC<{ data: FetchResult }>;
+  };
+  renderParameterField?: (fieldName: FieldKey, param: ParameterField) => ReactNode;
+  renderBodyField?: (fieldName: 'body', info: { schema: ParsedSchema; mediaType: string }) => ReactNode;
+}
+```
+
+<ParamField name="transformAuthInputs" type="(fields: AuthField[]) => AuthField[]">
+  Transform authentication input fields before rendering.
+</ParamField>
+
+<ParamField name="requestTimeout" type="number" default="10">
+  Request timeout in seconds.
+</ParamField>
+
+<ParamField name="components.ResultDisplay" type="React.FC">
+  Custom component for displaying API response.
+  
+  ```tsx
+  components: {
+    ResultDisplay: ({ data }) => (
+      <div>
+        <p>Status: {data.status}</p>
+        <pre>{JSON.stringify(data.data, null, 2)}</pre>
+      </div>
+    ),
+  }
+  ```
+</ParamField>
+
+<ParamField name="renderParameterField" type="function">
+  Custom renderer for parameter input fields.
+  
+  ```tsx
+  renderParameterField: (fieldName, param) => {
+    const { useController } = Custom;
+    const { value, setValue } = useController(fieldName);
+    
+    return (
+      <input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder={param.name}
+      />
+    );
+  }
+  ```
+</ParamField>
+
+<ParamField name="renderBodyField" type="function">
+  Custom renderer for request body input.
+</ParamField>
+
+## ParameterField
+
+API parameter definition:
+
+```ts
+type ParameterField = NoReference<ParameterObject> & {
+  schema: ParsedSchema;
+  in: 'cookie' | 'header' | 'query' | 'path';
+};
+```
+
+<ParamField name="name" type="string" required>
+  Parameter name.
+</ParamField>
+
+<ParamField name="in" type="'cookie' | 'header' | 'query' | 'path'" required>
+  Parameter location.
+</ParamField>
+
+<ParamField name="schema" type="ParsedSchema" required>
+  JSON schema for the parameter value.
+</ParamField>
+
+<ParamField name="required" type="boolean">
+  Whether the parameter is required.
+</ParamField>
+
+<ParamField name="description" type="string">
+  Parameter description.
+</ParamField>
+
+<ParamField name="deprecated" type="boolean">
+  Whether the parameter is deprecated.
+</ParamField>
+
+## SecurityEntry
+
+Authentication security scheme:
+
+```ts
+type SecurityEntry = SecuritySchemeObject & {
+  scopes: string[];
+  id: string;
+};
+```
+
+Supported security types:
+- `http`: HTTP authentication (Basic, Bearer)
+- `apiKey`: API key authentication
+- `oauth2`: OAuth 2.0 authentication
+- `openIdConnect`: OpenID Connect
+
+## AuthField
+
+Authentication field configuration:
+
+```ts
+interface AuthField {
+  fieldName: FieldKey;
+  defaultValue: unknown;
+  original?: SecurityEntry;
+  children: ReactNode;
+  mapOutput?: (values: unknown) => unknown;
+}
+```
+
+## Custom
+
+Hook for controlling form fields in custom renderers:
+
+```tsx
+import { Custom } from 'fumadocs-openapi/playground/client';
+
+function CustomField({ fieldName }) {
+  const { value, setValue } = Custom.useController(fieldName, {
+    defaultValue: '',
+  });
+  
+  return (
+    <input
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+    />
+  );
+}
+```
+
+<ParamField name="fieldName" type="FieldKey" required>
+  Field identifier. Can be array like `['header', 'Authorization']`.
+</ParamField>
+
+<ParamField name="options.defaultValue" type="unknown">
+  Default value for the field.
+</ParamField>
+
+**Returns:** `{ value, setValue }`
+
+## Example: Basic Playground
+
+```tsx
+import { createAPIPage } from 'fumadocs-openapi/ui';
+import { createOpenAPI } from 'fumadocs-openapi/server';
+
+const server = createOpenAPI({
+  input: ['./openapi.yaml'],
+  proxyUrl: '/api/proxy',
+});
+
+export const APIPage = createAPIPage(server, {
+  playground: {
+    enabled: true,
+  },
+});
+```
+
+## Example: Custom Result Display
+
+```tsx
+export const APIPage = createAPIPage(server, {
+  client: {
+    playground: {
+      components: {
+        ResultDisplay: ({ data, reset }) => (
+          <div className="border rounded-lg p-4">
+            <div className="flex justify-between mb-2">
+              <h3>Response</h3>
+              <button onClick={reset}>Close</button>
+            </div>
+            <div className="mb-2">
+              <span className="font-bold">Status:</span> {data.status}
+            </div>
+            {data.data && (
+              <pre className="bg-gray-100 p-2 rounded">
+                {JSON.stringify(data.data, null, 2)}
+              </pre>
+            )}
+          </div>
+        ),
+      },
+    },
+  },
+});
+```
+
+## Example: Custom Parameter Input
+
+```tsx
+import { Custom } from 'fumadocs-openapi/playground/client';
+
+export const APIPage = createAPIPage(server, {
+  client: {
+    playground: {
+      renderParameterField: (fieldName, param) => {
+        const { value, setValue } = Custom.useController(fieldName, {
+          defaultValue: param.schema.default || '',
+        });
+        
+        return (
+          <div className="mb-4">
+            <label className="block font-medium mb-1">
+              {param.name}
+              {param.required && <span className="text-red-500">*</span>}
+            </label>
+            <input
+              type="text"
+              value={value as string}
+              onChange={(e) => setValue(e.target.value)}
+              className="w-full border rounded px-3 py-2"
+              placeholder={param.description}
+            />
+          </div>
+        );
+      },
+    },
+  },
+});
+```
+
+## Example: Transform Auth Inputs
+
+```tsx
+export const APIPage = createAPIPage(server, {
+  client: {
+    playground: {
+      transformAuthInputs: (fields) => {
+        // Add custom auth field
+        return [
+          ...fields,
+          {
+            fieldName: ['header', 'X-Custom-Auth'],
+            defaultValue: '',
+            children: (
+              <FieldSet
+                fieldName={['header', 'X-Custom-Auth']}
+                name="Custom Auth Token"
+                isRequired
+                field={{ type: 'string' }}
+              />
+            ),
+          },
+        ];
+      },
+    },
+  },
+});
+```
+
+## Example: Custom Request Timeout
+
+```tsx
+export const APIPage = createAPIPage(server, {
+  client: {
+    playground: {
+      requestTimeout: 30, // 30 seconds
+    },
+  },
+});
+```
+
+## Example: Disable Playground
+
+```tsx
+export const APIPage = createAPIPage(server, {
+  playground: {
+    enabled: false,
+  },
+});
+```
+
+## Example: Custom Playground Renderer
+
+```tsx
+export const APIPage = createAPIPage(server, {
+  playground: {
+    render: ({ path, method, ctx }) => (
+      <div className="border rounded-lg p-4">
+        <h3>Try {method.method} {path}</h3>
+        <p>Custom playground implementation</p>
+        {/* Your custom playground UI */}
+      </div>
+    ),
+  },
+});
+```

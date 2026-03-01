@@ -1,0 +1,390 @@
+---
+title: Static Export
+description: Deploy Fumadocs as a static site without a Node.js server
+icon: FileOutput
+---
+
+## Overview
+
+By default, Fumadocs uses a server-first approach requiring a running Node.js server. Static export allows you to generate a fully static site (HTML, CSS, JS) that can be hosted on any CDN or static file server.
+
+Benefits:
+- **No server required** - Host on GitHub Pages, Netlify, Cloudflare Pages
+- **Maximum performance** - Serve directly from CDN edge locations
+- **Lower costs** - No server runtime charges
+- **Simple deployment** - Just upload static files
+
+## Prerequisites
+
+Before enabling static export, configure your search implementation:
+
+### Built-in Search (Orama)
+
+Configure both server and client for static mode:
+
+<Steps>
+
+### Configure Search Server
+
+Pre-generate search indexes as static JSON. Follow the [Static Export guide](/docs/headless/search/orama#static-export).
+
+Create a static route that exports search data:
+
+```ts title="app/static.json/route.ts"
+import { allDocs } from '@/.source';
+import { createSearchAPI } from 'fumadocs-core/search/server';
+
+const api = createSearchAPI('advanced', {
+  indexes: allDocs.map((page) => ({
+    id: page.url,
+    title: page.data.title,
+    description: page.data.description,
+    url: page.url,
+    structuredData: page.data.structuredData,
+  })),
+});
+
+export const GET = api.staticGET();
+export const dynamic = 'force-static';
+```
+
+### Configure Search Client
+
+Update your search component to use the static client:
+
+```tsx title="components/search.tsx"
+import { SearchDialog } from 'fumadocs-ui/components/dialog/search';
+
+export function Search() {
+  return (
+    <SearchDialog
+      search={{
+        type: 'static',
+        index: '/static.json',
+      }}
+    />
+  );
+}
+```
+
+</Steps>
+
+### Cloud Search Solutions
+
+Third-party search providers work automatically with static export:
+
+- **Algolia** - Pre-index during build, search via API
+- **Orama Cloud** - Remote search indexes
+- **Trieve** - Cloud-hosted search
+
+No additional configuration needed for static export.
+
+## Framework Configuration
+
+### Next.js
+
+Enable static export in your Next.js configuration:
+
+```js title="next.config.mjs"
+import { createMDX } from 'fumadocs-mdx/next';
+
+const withMDX = createMDX();
+
+/** @type {import('next').NextConfig} */
+const config = {
+  output: 'export',
+  reactStrictMode: true,
+
+  // Optional: Change links `/me` -> `/me/` and emit `/me.html` -> `/me/index.html`
+  // trailingSlash: true,
+
+  // Optional: Prevent automatic `/me` -> `/me/`, instead preserve `href`
+  // skipTrailingSlashRedirect: true,
+};
+
+export default withMDX(config);
+```
+
+<Callout type="info">
+  See [Next.js Static Exports](https://nextjs.org/docs/app/guides/static-exports) for limitations including:
+  - No Server Components with dynamic rendering
+  - No API routes
+  - No Image Optimization (use `unoptimized: true`)
+  - No Internationalized Routing
+</Callout>
+
+#### Build and Export
+
+```bash
+npm run build
+```
+
+Static files are output to the `out/` directory. Deploy these files to your static host.
+
+### React Router
+
+Configure SPA mode to serve the `build/client` directory as static files:
+
+```ts title="react-router.config.ts"
+import type { Config } from '@react-router/dev/config';
+import { glob } from 'node:fs/promises';
+import { createGetUrl, getSlugs } from 'fumadocs-core/source';
+
+const getUrl = createGetUrl('/docs');
+
+export default {
+  // Disable SSR
+  ssr: false,
+
+  // Pre-render all documentation pages
+  async prerender({ getStaticPaths }) {
+    const paths: string[] = [...getStaticPaths()];
+
+    // Add all MDX files to pre-render list
+    for await (const entry of glob('**/*.mdx', { cwd: 'content/docs' })) {
+      paths.push(getUrl(getSlugs(entry)));
+    }
+
+    return paths;
+  },
+} satisfies Config;
+```
+
+<Callout type="warn" title="Pre-render Server Loaders">
+  On SPA mode, all server-side loaders must be pre-rendered. See [React Router SPA Mode](https://reactrouter.com/how-to/spa) for details.
+</Callout>
+
+#### Build and Export
+
+```bash
+npm run build
+```
+
+Deploy the `build/client` directory to your static host.
+
+### Tanstack Start
+
+Enable SPA mode with pre-rendering:
+
+```ts title="vite.config.ts"
+import { tanstackStart } from '@tanstack/react-start/plugin/vite';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  plugins: [
+    tanstackStart({
+      spa: {
+        enabled: true,
+        // Automatically crawl and pre-render pages
+        prerender: {
+          enabled: true,
+        },
+        // Add hidden paths not visible in UI
+        pages: [
+          {
+            path: '/docs/hidden-page',
+          },
+        ],
+      },
+    }),
+  ],
+});
+```
+
+Tanstack Router automatically crawls linked pages. Use the `pages` array for routes not linked in your navigation.
+
+<Callout type="info">
+  See [Tanstack Start SPA Mode](https://tanstack.com/start/latest/docs/framework/react/guide/spa-mode) for complete documentation.
+</Callout>
+
+#### Build and Export
+
+```bash
+npm run build
+```
+
+### Waku
+
+Waku serves sites statically when all pages use `static` render mode:
+
+```tsx title="pages/docs/[...slug].tsx"
+export const getConfig = async () => {
+  return {
+    render: 'static',
+  };
+};
+```
+
+See [Waku Deployment](https://waku.gg/#deployment) for configuration details.
+
+## Hosting Options
+
+Once you've generated static files, deploy to any static host:
+
+### Cloudflare Pages
+
+```bash
+# Install Wrangler CLI
+npm install -g wrangler
+
+# Deploy
+wrangler pages deploy out/
+```
+
+Or use [direct upload](https://developers.cloudflare.com/pages/get-started/direct-upload/) via dashboard.
+
+### Netlify
+
+```toml title="netlify.toml"
+[build]
+  command = "npm run build"
+  publish = "out"
+```
+
+### GitHub Pages
+
+```yaml title=".github/workflows/deploy.yml"
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run build
+      - uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./out
+```
+
+### Vercel
+
+Vercel automatically detects static exports:
+
+```json title="vercel.json"
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "out"
+}
+```
+
+## Testing Locally
+
+Test your static export before deploying:
+
+### Using Python
+
+```bash
+cd out
+python -m http.server 8000
+```
+
+Visit `http://localhost:8000`
+
+### Using Node.js
+
+```bash
+npx serve out
+```
+
+### Using Nginx (Docker)
+
+```dockerfile
+FROM nginx:alpine
+COPY out /usr/share/nginx/html
+```
+
+## Image Optimization
+
+Next.js Image Optimization requires a server. For static export:
+
+```js title="next.config.mjs"
+const config = {
+  output: 'export',
+  images: {
+    unoptimized: true,
+  },
+};
+```
+
+Alternatively, use a third-party image CDN:
+
+```js title="next.config.mjs"
+const config = {
+  output: 'export',
+  images: {
+    loader: 'custom',
+    loaderFile: './image-loader.js',
+  },
+};
+```
+
+```js title="image-loader.js"
+export default function cloudflareLoader({ src, width, quality }) {
+  const params = [`width=${width}`];
+  if (quality) {
+    params.push(`quality=${quality}`);
+  }
+  const paramsString = params.join(',');
+  return `/cdn-cgi/image/${paramsString}/${src}`;
+}
+```
+
+## Troubleshooting
+
+### Build Fails with Dynamic Routes
+
+Ensure all dynamic routes have `generateStaticParams` (Next.js) or are included in pre-render configuration.
+
+### Search Not Working
+
+Verify:
+1. Search indexes are generated at build time
+2. Search client is configured for `type: 'static'`
+3. Static JSON file is accessible at the specified path
+
+### 404 Errors on Refresh
+
+Configure your host for SPA routing:
+
+**Netlify:**
+```toml title="netlify.toml"
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+```
+
+**Cloudflare Pages:**
+Automatically handled with a `_redirects` file:
+```txt title="public/_redirects"
+/* /index.html 200
+```
+
+## Next Steps
+
+<Cards>
+  <Card
+    title="Cloudflare Pages"
+    href="/deployment/cloudflare"
+    icon="CloudCog"
+  >
+    Deploy your static site to Cloudflare Pages
+  </Card>
+  <Card
+    title="Search Configuration"
+    href="/docs/headless/search/orama"
+    icon="Search"
+  >
+    Configure Orama search for static export
+  </Card>
+</Cards>

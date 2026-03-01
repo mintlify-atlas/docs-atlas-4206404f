@@ -1,0 +1,557 @@
+---
+title: TypeScript Docgen
+description: Generate API documentation from TypeScript type definitions
+---
+
+Automatically generate interactive API documentation from your TypeScript interfaces, types, and JSDoc comments. Perfect for documenting component props, function parameters, and configuration objects.
+
+## Installation
+
+```package-install
+fumadocs-typescript
+```
+
+## Quick Start
+
+### MDX Integration
+
+Use as a remark plugin to automatically generate type tables in your MDX files:
+
+```ts title="source.config.ts"
+import {
+  remarkAutoTypeTable,
+  createGenerator,
+  createFileSystemGeneratorCache,
+} from 'fumadocs-typescript';
+import { defineConfig } from 'fumadocs-mdx/config';
+
+const generator = createGenerator({
+  // Recommended: enable caching for better performance
+  cache: createFileSystemGeneratorCache('.next/fumadocs-typescript'),
+});
+
+export default defineConfig({
+  mdxOptions: {
+    remarkPlugins: [[remarkAutoTypeTable, { generator }]],
+  },
+});
+```
+
+### Usage in MDX
+
+Given a TypeScript file:
+
+```ts title="lib/types.ts"
+export interface ButtonProps {
+  /**
+   * Button variant style
+   */
+  variant: 'primary' | 'secondary' | 'outline';
+  
+  /**
+   * Button size
+   * @defaultValue 'md'
+   */
+  size?: 'sm' | 'md' | 'lg';
+  
+  /**
+   * Click handler
+   * @param event - The click event
+   */
+  onClick?: (event: MouseEvent) => void;
+  
+  /**
+   * Disable the button
+   */
+  disabled?: boolean;
+}
+```
+
+Reference it in your MDX:
+
+```mdx title="docs/components/button.mdx"
+# Button Component
+
+<auto-type-table path="./lib/types.ts" name="ButtonProps" />
+```
+
+This generates an interactive type table showing all properties with their types, descriptions, and metadata.
+
+### Add TypeTable Component
+
+Make sure to include the `TypeTable` component in your MDX components:
+
+```tsx title="mdx-components.tsx"
+import defaultComponents from 'fumadocs-ui/mdx';
+import type { MDXComponents } from 'mdx/types';
+
+export function getMDXComponents(components?: MDXComponents): MDXComponents {
+  return {
+    ...defaultComponents,
+    ...components,
+  };
+}
+```
+
+## UI Component
+
+You can also use the `AutoTypeTable` component directly in React Server Components:
+
+```tsx title="app/docs/api/page.tsx"
+import { AutoTypeTable } from 'fumadocs-typescript/ui';
+import { createGenerator } from 'fumadocs-typescript';
+
+const generator = createGenerator();
+
+export default function ApiPage() {
+  return (
+    <div>
+      <h1>API Reference</h1>
+      <AutoTypeTable
+        generator={generator}
+        path="./lib/types.ts"
+        name="ButtonProps"
+      />
+    </div>
+  );
+}
+```
+
+## Generator API
+
+### Creating a Generator
+
+```ts
+import { createGenerator, createFileSystemGeneratorCache } from 'fumadocs-typescript';
+
+const generator = createGenerator({
+  // Optional: path to tsconfig.json
+  tsconfigPath: './tsconfig.json',
+  
+  // Optional: enable file system caching
+  cache: createFileSystemGeneratorCache('.cache'),
+  
+  // Optional: reuse existing ts-morph project
+  project: myProject,
+});
+```
+
+### Generate Documentation
+
+```ts
+const docs = await generator.generateDocumentation(
+  {
+    path: './lib/types.ts',
+    content: '...', // Optional: provide content directly
+  },
+  'ButtonProps',
+  {
+    allowInternal: false, // Hide @internal properties
+  },
+);
+
+// docs[0].entries contains all properties
+for (const entry of docs[0].entries) {
+  console.log(entry.name, entry.type, entry.description);
+}
+```
+
+### Generate Type Table
+
+```tsx
+import { createGenerator } from 'fumadocs-typescript';
+
+const generator = createGenerator();
+
+const tables = generator.generateTypeTable(
+  {
+    path: './lib/types.ts',
+    name: 'ButtonProps',
+  },
+  {
+    basePath: process.cwd(),
+  },
+);
+```
+
+## JSDoc Annotations
+
+### Hide Internal Properties
+
+Use `@internal` to hide properties from documentation:
+
+```ts
+export interface Config {
+  /**
+   * Public API key
+   */
+  apiKey: string;
+  
+  /**
+   * Internal cache instance
+   * @internal
+   */
+  _cache: Map<string, unknown>;
+}
+```
+
+The `_cache` property won't appear in generated documentation.
+
+### Simplified Type Display
+
+Use `@remarks` to show a simplified type name:
+
+```ts
+export interface Response {
+  /**
+   * Response timestamp
+   * @remarks `timestamp` Returned by API
+   */
+  time: number;
+  
+  /**
+   * Complex nested object
+   * @remarks `User`
+   */
+  data: { id: string; name: string; email: string; metadata: Record<string, unknown> };
+}
+```
+
+The type column will show `timestamp` instead of `number`, and `User` instead of the full object type.
+
+### Custom Type Display
+
+Use `@fumadocsType` to override the full type:
+
+```ts
+export interface ApiClient {
+  /**
+   * HTTP client instance
+   * @fumadocsType `AxiosInstance`
+   */
+  client: typeof axios;
+}
+```
+
+### Link Types
+
+Use `@fumadocsHref` to link to other documentation:
+
+```ts
+export interface ComponentProps {
+  /**
+   * Theme configuration
+   * @fumadocsHref #type-table-theme-config
+   */
+  theme: ThemeConfig;
+  
+  /**
+   * Router instance
+   * @fumadocsHref /docs/api/router
+   */
+  router: Router;
+}
+```
+
+### Default Values
+
+Use `@defaultValue` to document defaults:
+
+```ts
+export interface Options {
+  /**
+   * Request timeout in milliseconds
+   * @defaultValue 5000
+   */
+  timeout?: number;
+  
+  /**
+   * Enable retry logic
+   * @defaultValue true
+   */
+  retry?: boolean;
+}
+```
+
+### Function Parameters
+
+Document function parameters with `@param`:
+
+```ts
+export interface EventHandler {
+  /**
+   * Handle click events
+   * @param event - The mouse event object
+   * @param target - The element that was clicked
+   */
+  onClick: (event: MouseEvent, target: HTMLElement) => void;
+}
+```
+
+### Return Values
+
+Document return values with `@returns`:
+
+```ts
+export interface DataFetcher {
+  /**
+   * Fetch user data from API
+   * @returns Promise resolving to user object
+   */
+  fetchUser: (id: string) => Promise<User>;
+}
+```
+
+### Deprecation
+
+Mark properties as deprecated:
+
+```ts
+export interface LegacyConfig {
+  /**
+   * Old API endpoint
+   * @deprecated Use `apiUrl` instead
+   */
+  endpoint?: string;
+  
+  /**
+   * New API endpoint
+   */
+  apiUrl: string;
+}
+```
+
+## Advanced Usage
+
+### Custom Transformers
+
+Transform documentation entries before rendering:
+
+```ts
+import { createGenerator } from 'fumadocs-typescript';
+
+const generator = createGenerator();
+
+const docs = await generator.generateDocumentation(
+  { path: './types.ts' },
+  'MyType',
+  {
+    transform(entry, propertyType, propertySymbol) {
+      // Add custom metadata
+      if (entry.name.startsWith('on')) {
+        entry.tags.push({
+          name: 'event',
+          text: 'Event handler',
+        });
+      }
+      
+      // Customize type display
+      if (entry.type.includes('React.FC')) {
+        entry.simplifiedType = 'Component';
+      }
+    },
+  },
+);
+```
+
+### Caching
+
+Use file system caching to improve build performance:
+
+```ts
+import {
+  createGenerator,
+  createFileSystemGeneratorCache,
+} from 'fumadocs-typescript';
+
+const generator = createGenerator({
+  cache: createFileSystemGeneratorCache('.next/fumadocs-typescript'),
+});
+```
+
+The generator will cache results based on file content, significantly speeding up subsequent builds.
+
+### Custom Rendering
+
+Customize how types and markdown are rendered:
+
+```ts
+import { remarkAutoTypeTable, createGenerator } from 'fumadocs-typescript';
+import { defineConfig } from 'fumadocs-mdx/config';
+
+const generator = createGenerator();
+
+export default defineConfig({
+  mdxOptions: {
+    remarkPlugins: [
+      [
+        remarkAutoTypeTable,
+        {
+          generator,
+          renderMarkdown: async (md) => {
+            // Custom markdown renderer
+            return `<span>${md}</span>`;
+          },
+          renderType: async (type) => {
+            // Custom type renderer
+            return `<code>${type}</code>`;
+          },
+        },
+      ],
+    ],
+  },
+});
+```
+
+### Syntax Highlighting
+
+Configure Shiki for code highlighting:
+
+```ts
+import { remarkAutoTypeTable, createGenerator } from 'fumadocs-typescript';
+import { bundleShikiConfig } from 'fumadocs-core/highlight/config';
+import { defineConfig } from 'fumadocs-mdx/config';
+
+const generator = createGenerator();
+const shikiConfig = bundleShikiConfig({
+  themes: {
+    light: 'github-light',
+    dark: 'github-dark',
+  },
+});
+
+export default defineConfig({
+  mdxOptions: {
+    remarkPlugins: [
+      [remarkAutoTypeTable, { generator, shiki: shikiConfig }],
+    ],
+  },
+});
+```
+
+## Component Examples
+
+### React Component Props
+
+```ts title="components/card.tsx"
+export interface CardProps {
+  /**
+   * Card title
+   */
+  title: string;
+  
+  /**
+   * Card description
+   * @remarks Optional subtitle text
+   */
+  description?: string;
+  
+  /**
+   * Card variant
+   * @defaultValue 'default'
+   */
+  variant?: 'default' | 'outlined' | 'elevated';
+  
+  /**
+   * Footer content
+   */
+  footer?: React.ReactNode;
+}
+```
+
+```mdx title="docs/components/card.mdx"
+# Card
+
+<auto-type-table path="./components/card.tsx" name="CardProps" />
+```
+
+### Configuration Objects
+
+```ts title="lib/config.ts"
+export interface DatabaseConfig {
+  /**
+   * Database host address
+   * @defaultValue 'localhost'
+   */
+  host?: string;
+  
+  /**
+   * Database port
+   * @defaultValue 5432
+   */
+  port?: number;
+  
+  /**
+   * Database name
+   */
+  database: string;
+  
+  /**
+   * Connection pool size
+   * @defaultValue 10
+   * @remarks Number of concurrent connections
+   */
+  poolSize?: number;
+}
+```
+
+### API Response Types
+
+```ts title="lib/api-types.ts"
+export interface ApiResponse<T> {
+  /**
+   * Response data
+   */
+  data: T;
+  
+  /**
+   * Response status code
+   */
+  status: number;
+  
+  /**
+   * Response message
+   */
+  message?: string;
+  
+  /**
+   * Request metadata
+   */
+  meta: {
+    /**
+     * Request timestamp
+     */
+    timestamp: number;
+    
+    /**
+     * Request duration in ms
+     */
+    duration: number;
+  };
+}
+```
+
+## Best Practices
+
+1. **Write comprehensive JSDoc**: Include descriptions for all public types and properties
+2. **Use @remarks for context**: Provide additional information about complex types
+3. **Mark internal APIs**: Use `@internal` to hide implementation details
+4. **Enable caching**: Use file system cache in development and production builds
+5. **Link related types**: Use `@fumadocsHref` to connect documentation sections
+6. **Document defaults**: Always specify `@defaultValue` for optional properties
+7. **Organize types**: Keep related types in the same file for easier documentation
+
+## TypeScript Configuration
+
+Ensure your `tsconfig.json` is properly configured:
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "strict": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true
+  }
+}
+```

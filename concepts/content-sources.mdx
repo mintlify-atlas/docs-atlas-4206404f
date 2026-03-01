@@ -1,0 +1,490 @@
+---
+title: Content Sources
+description: Understanding content sources and how Fumadocs loads documentation from different providers
+---
+
+## Overview
+
+Content sources are the foundation of Fumadocs, providing an abstraction layer that enables loading documentation from various providers - local files, CMSs, APIs, or databases. The source adapter system transforms content into a unified format for processing.
+
+## Source Interface
+
+All content sources implement the `Source` interface:
+
+```typescript packages/core/src/source/source.ts
+export interface Source<Config extends SourceConfig = SourceConfig> {
+  files: VirtualFile<Config>[];
+}
+
+export interface SourceConfig {
+  pageData: PageData;
+  metaData: MetaData;
+}
+```
+
+<Note>
+The `Source` interface is intentionally simple - it's just an array of virtual files. This makes it easy to create custom source adapters.
+</Note>
+
+## Virtual Files
+
+Content is represented as virtual files with two types:
+
+<CodeGroup>
+```typescript Page Files
+interface VirtualPage<Data> {
+  type: 'page';
+  
+  // Virtualized path (relative to content directory)
+  path: string;
+  
+  // Absolute path of source file (optional)
+  absolutePath?: string;
+  
+  // Slugs for URL generation
+  slugs?: string[];
+  
+  // Page metadata (title, description, etc.)
+  data: Data;
+}
+```
+
+```typescript Meta Files
+interface VirtualMeta<Data> {
+  type: 'meta';
+  
+  // Virtualized path
+  path: string;
+  
+  // Absolute path of source file (optional)
+  absolutePath?: string;
+  
+  // Folder metadata
+  data: Data;
+}
+```
+</CodeGroup>
+
+### Virtual Paths
+
+Virtual paths are normalized, framework-agnostic paths that represent the logical structure of your documentation:
+
+```typescript
+// Real filesystem path
+/Users/you/project/docs/getting-started/installation.mdx
+
+// Virtual path
+docs/getting-started/installation.mdx
+```
+
+<Warning>
+Virtual paths must NOT start with `./` or `../`. They are always relative to the content root.
+</Warning>
+
+## Page Data
+
+Page data contains metadata extracted from frontmatter or provided by your source:
+
+```typescript packages/core/src/source/source.ts
+export interface PageData {
+  icon?: string | undefined;
+  title?: string;
+  description?: string | undefined;
+}
+```
+
+<Accordion title="Extending Page Data">
+You can extend `PageData` with custom fields in your source adapter:
+
+```typescript
+interface CustomPageData extends PageData {
+  author?: string;
+  tags?: string[];
+  lastModified?: Date;
+}
+
+const source = createSource<CustomPageData, MetaData>({
+  // your implementation
+});
+```
+</Accordion>
+
+## Meta Data
+
+Meta files configure folder behavior in the page tree:
+
+```typescript packages/core/src/source/source.ts
+export interface MetaData {
+  icon?: string | undefined;
+  title?: string | undefined;
+  description?: string | undefined;
+  
+  // Mark as root folder (appears in top-level navigation)
+  root?: boolean | undefined;
+  
+  // Custom page ordering
+  pages?: string[] | undefined;
+  
+  // Folder starts open
+  defaultOpen?: boolean | undefined;
+  
+  // Folder can be collapsed
+  collapsible?: boolean | undefined;
+}
+```
+
+### Meta File Patterns
+
+The `pages` array supports special patterns:
+
+<CardGroup cols={2}>
+  <Card title="Rest Operator" icon="ellipsis">
+    `...` - Include all remaining files in alphabetical order
+  </Card>
+  <Card title="Reverse Rest" icon="arrow-down-z-a">
+    `z...a` - Include remaining files in reverse alphabetical order
+  </Card>
+  <Card title="Extract Folder" icon="folder-open">
+    `...folder-name` - Inline a folder's children
+  </Card>
+  <Card title="Exclude Files" icon="ban">
+    `!file-name` - Exclude specific files from auto-ordering
+  </Card>
+</CardGroup>
+
+```json meta.json
+{
+  "title": "Getting Started",
+  "pages": [
+    "introduction",
+    "installation",
+    "...",
+    "!internal-doc"
+  ]
+}
+```
+
+## Creating a Source
+
+Use the `source()` helper to create a source:
+
+```typescript packages/core/src/source/source.ts
+export function source<Page extends PageData, Meta extends MetaData>(config: {
+  pages: VirtualPage<Page>[];
+  metas: VirtualMeta<Meta>[];
+}): Source<{
+  pageData: Page;
+  metaData: Meta;
+}> {
+  return {
+    files: [...config.pages, ...config.metas],
+  };
+}
+```
+
+### Example: Simple Source
+
+```typescript
+import { source } from 'fumadocs-core/source';
+
+const mySource = source({
+  pages: [
+    {
+      type: 'page',
+      path: 'docs/introduction.mdx',
+      slugs: ['introduction'],
+      data: {
+        title: 'Introduction',
+        description: 'Get started with Fumadocs',
+      },
+    },
+  ],
+  metas: [
+    {
+      type: 'meta',
+      path: 'docs/meta.json',
+      data: {
+        title: 'Documentation',
+        root: true,
+      },
+    },
+  ],
+});
+```
+
+## Multiple Sources
+
+Combine multiple sources with the `multiple()` helper:
+
+```typescript packages/core/src/source/source.ts
+export function multiple<T extends Record<string, Source>>(sources: T) {
+  const out: Source = { files: [] };
+
+  for (const [type, source] of Object.entries(sources)) {
+    for (const file of source.files) {
+      out.files.push({
+        ...file,
+        data: {
+          ...file.data,
+          type, // Add type discriminator
+        },
+      });
+    }
+  }
+
+  return out;
+}
+```
+
+### Example: Multi-Source Setup
+
+```typescript
+import { multiple } from 'fumadocs-core/source';
+import { docsSource } from './docs-source';
+import { blogSource } from './blog-source';
+
+const combined = multiple({
+  docs: docsSource,
+  blog: blogSource,
+});
+
+// Pages now have a 'type' field
+const page = combined.files[0];
+if (page.data.type === 'docs') {
+  // TypeScript knows this is a docs page
+}
+```
+
+## Transforming Sources
+
+The `update()` function enables source transformations:
+
+```typescript packages/core/src/source/source.ts
+export function update<Config>(source: Source<Config>) {
+  return {
+    files(fn) {
+      source.files = fn(source.files);
+      return this;
+    },
+    page(fn) {
+      for (let i = 0; i < source.files.length; i++) {
+        const file = source.files[i];
+        if (file.type === 'page') source.files[i] = fn(file);
+      }
+      return this;
+    },
+    meta(fn) {
+      for (let i = 0; i < source.files.length; i++) {
+        const file = source.files[i];
+        if (file.type === 'meta') source.files[i] = fn(file);
+      }
+      return this;
+    },
+    build() {
+      return source;
+    },
+  };
+}
+```
+
+### Example: Adding Custom Fields
+
+```typescript
+import { update } from 'fumadocs-core/source';
+
+const enhanced = update(mySource)
+  .page((page) => ({
+    ...page,
+    data: {
+      ...page.data,
+      author: 'Team Fumadocs',
+      lastModified: new Date(),
+    },
+  }))
+  .build();
+```
+
+## Built-in Source Adapters
+
+Fumadocs provides official source adapters:
+
+<CardGroup cols={2}>
+  <Card title="Fumadocs MDX" icon="markdown" href="/integrations/fumadocs-mdx">
+    Load MDX files from the filesystem with full type safety
+  </Card>
+  <Card title="Content Collections" icon="layer-group" href="/integrations/content-collections">
+    Integrate with Content Collections for advanced content management
+  </Card>
+  <Card title="TypeScript Config" icon="code" href="/integrations/typescript">
+    Generate documentation from TypeScript type definitions
+  </Card>
+  <Card title="OpenAPI" icon="book" href="/integrations/openapi">
+    Generate API documentation from OpenAPI/Swagger specs
+  </Card>
+</CardGroup>
+
+## Locale Handling
+
+Content storage handles localization through path parsing:
+
+```typescript packages/core/src/source/storage/content.ts
+const parsers = {
+  // Parse locale from directory: en/docs/page.mdx
+  dir(path: string): [string, string?] {
+    const [locale, ...segs] = path.split('/');
+    if (locale && segs.length > 0 && isLocaleValid(locale)) {
+      return [segs.join('/'), locale];
+    }
+    return [path];
+  },
+  
+  // Parse locale from filename: docs/page.en.mdx
+  dot(path: string): [string, string?] {
+    const dir = dirname(path);
+    const base = basename(path);
+    const parts = base.split('.');
+    if (parts.length < 3) return [path];
+    
+    const [locale] = parts.splice(parts.length - 2, 1);
+    if (!isLocaleValid(locale)) return [path];
+    
+    return [joinPath(dir, parts.join('.')), locale];
+  },
+  
+  // No locale parsing
+  none(path: string): [string, string?] {
+    return [path];
+  },
+};
+```
+
+<Tabs>
+  <Tab title="Directory Structure">
+    ```
+    docs/
+      en/
+        getting-started.mdx
+        api.mdx
+      zh/
+        getting-started.mdx
+        api.mdx
+    ```
+    Use `parser: 'dir'` in i18n config.
+  </Tab>
+  <Tab title="Filename Suffix">
+    ```
+    docs/
+      getting-started.en.mdx
+      getting-started.zh.mdx
+      api.en.mdx
+      api.zh.mdx
+    ```
+    Use `parser: 'dot'` in i18n config.
+  </Tab>
+</Tabs>
+
+## Slug Generation
+
+The slugs plugin generates URL slugs from file paths:
+
+```typescript packages/core/src/source/plugins/slugs.ts
+export function getSlugs(file: string): string[] {
+  const dir = dirname(file);
+  const name = basename(file, extname(file));
+  const slugs: string[] = [];
+
+  for (const seg of dir.split('/')) {
+    // Filter empty names and file groups like (group_name)
+    if (seg.length > 0 && !GroupRegex.test(seg)) {
+      slugs.push(encodeURI(seg));
+    }
+  }
+
+  if (name !== 'index') {
+    slugs.push(encodeURI(name));
+  }
+
+  return slugs;
+}
+```
+
+### File Groups
+
+Wrap folder names in parentheses to exclude them from URLs:
+
+```
+docs/
+  (getting-started)/
+    introduction.mdx  -> /docs/introduction
+    setup.mdx        -> /docs/setup
+  api/
+    reference.mdx    -> /docs/api/reference
+```
+
+<Note>
+File groups help organize content without affecting URL structure.
+</Note>
+
+## Custom Slug Functions
+
+Override default slug generation:
+
+```typescript
+import { loader } from 'fumadocs-core/source';
+import { slugsFromData } from 'fumadocs-core/source';
+
+const docs = loader({
+  source: mySource,
+  baseUrl: '/docs',
+  slugs: (file) => {
+    // Use slug from frontmatter if available
+    if (file.data.slug) {
+      return file.data.slug.split('/');
+    }
+    // Otherwise use default behavior
+    return undefined;
+  },
+});
+```
+
+## Content Storage Builder
+
+The content storage builder processes virtual files into the in-memory file system:
+
+```typescript packages/core/src/source/storage/content.ts
+export function createContentStorageBuilder(loaderConfig: ResolvedLoaderConfig) {
+  const { source, plugins = [], i18n } = loaderConfig;
+
+  return {
+    i18n(): Record<string, ContentStorage> {
+      // Create separate storage for each locale
+      const storages: Record<string, ContentStorage> = {};
+      for (const lang of i18n.languages) {
+        storages[lang] = makeStorage(lang);
+      }
+      return storages;
+    },
+    single(): ContentStorage {
+      // Single storage for non-localized content
+      return makeStorage();
+    },
+  };
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Page Tree" icon="sitemap" href="/concepts/page-tree">
+    Learn how sources are transformed into navigation trees
+  </Card>
+  <Card title="Fumadocs MDX" icon="markdown" href="/integrations/fumadocs-mdx">
+    Use the official MDX source adapter
+  </Card>
+  <Card title="Custom Sources" icon="code" href="/advanced/custom-sources">
+    Build your own source adapter
+  </Card>
+  <Card title="Plugin Development" icon="plug" href="/advanced/plugins">
+    Create plugins that transform sources
+  </Card>
+</CardGroup>

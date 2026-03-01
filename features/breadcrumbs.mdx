@@ -1,0 +1,448 @@
+---
+title: Breadcrumbs
+description: Add breadcrumb navigation showing the current page location
+---
+
+Fumadocs provides utilities to generate breadcrumb navigation from your page tree structure.
+
+## Basic Usage
+
+```tsx title="components/breadcrumbs.tsx"
+import { useBreadcrumb } from 'fumadocs-core/breadcrumb';
+import { usePathname } from 'next/navigation';
+import { source } from '@/lib/source';
+
+export function Breadcrumbs() {
+  const pathname = usePathname();
+  const tree = source.getPageTree();
+  const items = useBreadcrumb(pathname, tree);
+
+  return (
+    <nav aria-label="Breadcrumb">
+      <ol className="flex items-center gap-2">
+        {items.map((item, i) => (
+          <li key={i} className="flex items-center gap-2">
+            {i > 0 && <span>/</span>}
+            {item.url ? (
+              <a href={item.url}>{item.name}</a>
+            ) : (
+              <span>{item.name}</span>
+            )}
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+```
+
+## Data Structure
+
+```ts
+interface BreadcrumbItem {
+  name: ReactNode;
+  url?: string; // undefined for non-linkable items
+}
+```
+
+Example output:
+```ts
+[
+  { name: 'Documentation', url: '/docs' },
+  { name: 'Getting Started', url: '/docs/getting-started' },
+  { name: 'Installation', url: '/docs/getting-started/installation' }
+]
+```
+
+## API
+
+### useBreadcrumb
+
+React hook for generating breadcrumbs:
+
+```tsx
+import { useBreadcrumb } from 'fumadocs-core/breadcrumb';
+import type { Root } from 'fumadocs-core/page-tree';
+
+function Component() {
+  const items = useBreadcrumb(
+    url: string,
+    tree: Root,
+    options?: BreadcrumbOptions
+  );
+
+  return /* breadcrumb UI */;
+}
+```
+
+### getBreadcrumbItems
+
+Direct function for server-side or non-React usage:
+
+```ts
+import { getBreadcrumbItems } from 'fumadocs-core/breadcrumb';
+import { source } from '@/lib/source';
+
+export default function Page({ params }: { params: { slug: string[] } }) {
+  const page = source.getPage(params.slug);
+  const tree = source.getPageTree();
+  const breadcrumbs = getBreadcrumbItems(page.url, tree);
+
+  return (
+    <div>
+      <Breadcrumbs items={breadcrumbs} />
+    </div>
+  );
+}
+```
+
+### getBreadcrumbItemsFromPath
+
+Generate breadcrumbs from a pre-computed path:
+
+```ts
+import {
+  getBreadcrumbItemsFromPath,
+  searchPath
+} from 'fumadocs-core/breadcrumb';
+import type { Root, Node } from 'fumadocs-core/page-tree';
+
+function buildBreadcrumbs(tree: Root, url: string) {
+  const path: Node[] = searchPath(tree.children, url) ?? [];
+  return getBreadcrumbItemsFromPath(tree, path, {
+    includePage: true
+  });
+}
+```
+
+## Options
+
+```ts
+interface BreadcrumbOptions {
+  /**
+   * Include the root folders in breadcrumb items
+   * @defaultValue false
+   */
+  includeRoot?: boolean | {
+    /**
+     * Specify the url of root
+     */
+    url: string;
+  };
+
+  /**
+   * Include the page itself in breadcrumb items
+   * @defaultValue false
+   */
+  includePage?: boolean;
+
+  /**
+   * Count separator as an item
+   * @defaultValue false
+   */
+  includeSeparator?: boolean;
+}
+```
+
+## Examples
+
+### Include Root
+
+Add the root node to breadcrumbs:
+
+```tsx
+const items = useBreadcrumb(pathname, tree, {
+  includeRoot: true
+});
+// Result: [{ name: 'Docs', url: undefined }, { name: 'Guide', ... }]
+
+// Or with custom URL:
+const items = useBreadcrumb(pathname, tree, {
+  includeRoot: { url: '/docs' }
+});
+// Result: [{ name: 'Docs', url: '/docs' }, { name: 'Guide', ... }]
+```
+
+### Include Current Page
+
+Add the current page as the last item:
+
+```tsx
+const items = useBreadcrumb(pathname, tree, {
+  includePage: true
+});
+// Result: [
+//   { name: 'Docs', url: '/docs' },
+//   { name: 'Features', url: '/docs/features' },
+//   { name: 'Breadcrumbs', url: '/docs/features/breadcrumbs' }
+// ]
+```
+
+### Include Separators
+
+Include separator nodes from page tree:
+
+```tsx
+const items = useBreadcrumb(pathname, tree, {
+  includeSeparator: true
+});
+// Separators have no URL: { name: 'Getting Started', url: undefined }
+```
+
+## Styled Components
+
+### With Icons
+
+```tsx
+import { ChevronRight, Home } from 'lucide-react';
+import { useBreadcrumb } from 'fumadocs-core/breadcrumb';
+
+export function Breadcrumbs() {
+  const pathname = usePathname();
+  const tree = source.getPageTree();
+  const items = useBreadcrumb(pathname, tree, { includeRoot: true });
+
+  return (
+    <nav className="flex items-center gap-2 text-sm">
+      <Home className="h-4 w-4" />
+      {items.map((item, i) => (
+        <div key={i} className="flex items-center gap-2">
+          {i > 0 && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+          {item.url ? (
+            <a
+              href={item.url}
+              className="hover:text-foreground text-muted-foreground"
+            >
+              {item.name}
+            </a>
+          ) : (
+            <span className="text-foreground font-medium">{item.name}</span>
+          )}
+        </div>
+      ))}
+    </nav>
+  );
+}
+```
+
+### Structured Data
+
+Add JSON-LD breadcrumb schema for SEO:
+
+```tsx
+import { useBreadcrumb } from 'fumadocs-core/breadcrumb';
+
+export function BreadcrumbsWithSchema() {
+  const pathname = usePathname();
+  const tree = source.getPageTree();
+  const items = useBreadcrumb(pathname, tree, {
+    includeRoot: { url: '/' },
+    includePage: true
+  });
+
+  const schema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: items.map((item, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: item.name,
+      item: item.url ? `https://yoursite.com${item.url}` : undefined
+    }))
+  };
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+      />
+      <nav aria-label="Breadcrumb">
+        {/* Breadcrumb UI */}
+      </nav>
+    </>
+  );
+}
+```
+
+### Responsive Design
+
+```tsx
+import { useBreadcrumb } from 'fumadocs-core/breadcrumb';
+
+export function ResponsiveBreadcrumbs() {
+  const pathname = usePathname();
+  const tree = source.getPageTree();
+  const items = useBreadcrumb(pathname, tree, { includePage: true });
+
+  // Show only last 2 items on mobile
+  const mobileItems = items.slice(-2);
+
+  return (
+    <>
+      {/* Mobile: Last 2 items only */}
+      <nav className="md:hidden flex items-center gap-2 text-sm">
+        {mobileItems.length > 1 && <span>...</span>}
+        {mobileItems.map((item, i) => (
+          <div key={i} className="flex items-center gap-2">
+            {i > 0 && <span>/</span>}
+            {item.url ? (
+              <a href={item.url}>{item.name}</a>
+            ) : (
+              <span className="font-medium">{item.name}</span>
+            )}
+          </div>
+        ))}
+      </nav>
+
+      {/* Desktop: All items */}
+      <nav className="hidden md:flex items-center gap-2 text-sm">
+        {items.map((item, i) => (
+          <div key={i} className="flex items-center gap-2">
+            {i > 0 && <span>/</span>}
+            {item.url ? (
+              <a href={item.url} className="hover:underline">
+                {item.name}
+              </a>
+            ) : (
+              <span className="font-medium">{item.name}</span>
+            )}
+          </div>
+        ))}
+      </nav>
+    </>
+  );
+}
+```
+
+## Integration with Search
+
+Breadcrumbs are automatically included in search results:
+
+```ts
+import { createSearchAPI } from 'fumadocs-core/search/server';
+import { source } from '@/lib/source';
+
+export const { GET } = createSearchAPI('advanced', {
+  indexes: source.getPages().map((page) => {
+    const tree = source.getPageTree();
+    const breadcrumbs = getBreadcrumbItems(page.url, tree)
+      .map(item => typeof item.name === 'string' ? item.name : '')
+      .filter(Boolean);
+
+    return {
+      id: page.url,
+      title: page.data.title,
+      url: page.url,
+      breadcrumbs, // Used in search results
+      structuredData: page.data.structuredData
+    };
+  })
+});
+```
+
+Search results will include breadcrumbs for context:
+
+```tsx
+function SearchResult({ result }: { result: SortedResult }) {
+  return (
+    <a href={result.url}>
+      {result.breadcrumbs && (
+        <div className="text-xs text-muted-foreground">
+          {result.breadcrumbs.join(' > ')}
+        </div>
+      )}
+      <div dangerouslySetInnerHTML={{ __html: result.content }} />
+    </a>
+  );
+}
+```
+
+## Path Search
+
+Manually search for a page path in the tree:
+
+```ts
+import { searchPath } from 'fumadocs-core/breadcrumb';
+import type { Node } from 'fumadocs-core/page-tree';
+
+const tree = source.getPageTree();
+const path: Node[] | null = searchPath(
+  tree.children,
+  '/docs/features/breadcrumbs'
+);
+
+if (path) {
+  console.log('Page found at path:', path);
+  // [FolderNode, FolderNode, PageNode]
+}
+```
+
+The function:
+- Returns full path from root to target page
+- Returns `null` if page not found
+- Normalizes URLs for comparison
+- Works with nested folder structures
+
+## Folder Behavior
+
+Breadcrumbs handle folders intelligently:
+
+```ts
+// Folder with index page
+{
+  type: 'folder',
+  name: 'Guides',
+  index: { url: '/docs/guides', name: 'Guides' },
+  children: [...]
+}
+// Breadcrumb: { name: 'Guides', url: '/docs/guides' }
+
+// Folder without index
+{
+  type: 'folder',
+  name: 'Guides',
+  index: undefined,
+  children: [...]
+}
+// Breadcrumb: { name: 'Guides', url: undefined }
+```
+
+## Root Folders
+
+Root folders (`root: true`) are excluded by default:
+
+```tsx
+const tree = {
+  name: 'Docs',
+  children: [
+    {
+      type: 'folder',
+      name: 'API',
+      root: true, // This folder is a root
+      children: [...]
+    }
+  ]
+};
+
+// Default: Root folder excluded
+const items = useBreadcrumb('/docs/api/endpoints', tree);
+// Result: [{ name: 'Endpoints', ... }]
+
+// Include root folders
+const items = useBreadcrumb('/docs/api/endpoints', tree, {
+  includeRoot: true
+});
+// Result: [{ name: 'Docs', ... }, { name: 'API', ... }, { name: 'Endpoints', ... }]
+```
+
+## Best Practices
+
+1. **Include Root**: Always include root with URL for better navigation
+2. **Current Page**: Include current page for completeness and accessibility
+3. **Structured Data**: Add JSON-LD schema for SEO benefits
+4. **Mobile**: Truncate breadcrumbs on mobile to save space
+5. **Icons**: Use chevrons or slashes for clear separation
+6. **Hover States**: Add hover styles for interactive breadcrumbs
+7. **ARIA**: Use `aria-label="Breadcrumb"` for accessibility
+8. **Last Item**: Style the last item differently (non-link or bold)

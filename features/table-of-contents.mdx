@@ -1,0 +1,492 @@
+---
+title: Table of Contents
+description: Add interactive table of contents with active heading detection
+---
+
+Fumadocs provides an interactive table of contents (TOC) component with automatic heading detection and smooth scrolling.
+
+## Basic Usage
+
+```tsx title="app/docs/[...slug]/page.tsx"
+import { TOC } from 'fumadocs-ui/components/toc';
+import { source } from '@/lib/source';
+
+export default function Page({ params }: { params: { slug: string[] } }) {
+  const page = source.getPage(params.slug);
+  
+  return (
+    <div>
+      <article>
+        <page.data.body />
+      </article>
+      <TOC items={page.data.toc} />
+    </div>
+  );
+}
+```
+
+## Data Structure
+
+```ts
+interface TOCItemType {
+  title: ReactNode;
+  url: string; // Including '#' prefix
+  depth: number; // Heading level (1-6)
+}
+
+type TableOfContents = TOCItemType[];
+```
+
+Example TOC data:
+```ts
+const toc: TableOfContents = [
+  { title: 'Introduction', url: '#introduction', depth: 2 },
+  { title: 'Getting Started', url: '#getting-started', depth: 2 },
+  { title: 'Installation', url: '#installation', depth: 3 },
+  { title: 'Configuration', url: '#configuration', depth: 3 },
+  { title: 'Advanced', url: '#advanced', depth: 2 }
+];
+```
+
+## TOC Provider
+
+Set up TOC context:
+
+```tsx
+import { TOCProvider } from 'fumadocs-ui/components/toc';
+import type { TOCItemType } from 'fumadocs-core/toc';
+
+function Page({ toc }: { toc: TOCItemType[] }) {
+  return (
+    <TOCProvider toc={toc} single={false}>
+      {/* Your content */}
+    </TOCProvider>
+  );
+}
+```
+
+**Provider Options:**
+```tsx
+interface AnchorProviderProps {
+  toc: TableOfContents;
+  /**
+   * Only accept one active item at most
+   * @defaultValue false
+   */
+  single?: boolean;
+  children?: ReactNode;
+}
+```
+
+## Core Hooks
+
+### useActiveAnchor
+
+Get the currently active heading:
+
+```tsx
+import { useActiveAnchor } from 'fumadocs-core/toc';
+
+function TOCItem({ item }: { item: TOCItemType }) {
+  const activeId = useActiveAnchor();
+  const isActive = activeId === item.url.slice(1);
+
+  return (
+    <a
+      href={item.url}
+      data-active={isActive}
+    >
+      {item.title}
+    </a>
+  );
+}
+```
+
+### useActiveAnchors
+
+Get all visible anchors (when `single={false}`):
+
+```tsx
+import { useActiveAnchors } from 'fumadocs-core/toc';
+
+function TOCHighlight() {
+  const activeAnchors = useActiveAnchors();
+  // Returns: ['introduction', 'getting-started']
+
+  return (
+    <div>
+      Active: {activeAnchors.join(', ')}
+    </div>
+  );
+}
+```
+
+### useTOCItems
+
+Access TOC items from context:
+
+```tsx
+import { useTOCItems } from 'fumadocs-ui/components/toc';
+
+function CustomTOC() {
+  const items = useTOCItems();
+
+  return (
+    <nav>
+      {items.map((item) => (
+        <a key={item.url} href={item.url}>
+          {item.title}
+        </a>
+      ))}
+    </nav>
+  );
+}
+```
+
+## TOC Components
+
+### Default TOC
+
+```tsx
+import { TOCItems } from 'fumadocs-ui/components/toc';
+
+function Sidebar() {
+  return (
+    <aside>
+      <h3>On this page</h3>
+      <TOCItems />
+    </aside>
+  );
+}
+```
+
+The default component:
+- Shows "No headings" message when empty
+- Applies depth-based indentation
+- Highlights active headings
+- Includes animated thumb indicator
+
+### TOC Item
+
+```tsx
+import { TOCItem } from 'fumadocs-core/toc';
+
+function CustomTOCItem({ item }: { item: TOCItemType }) {
+  return (
+    <TOCItem
+      href={item.url}
+      onActiveChange={(active) => {
+        console.log(`${item.title} is ${active ? 'active' : 'inactive'}`);
+      }}
+    >
+      {item.title}
+    </TOCItem>
+  );
+}
+```
+
+**TOCItem Props:**
+```ts
+interface TOCItemProps extends Omit<ComponentProps<'a'>, 'href'> {
+  href: string;
+  onActiveChange?: (active: boolean) => void;
+}
+```
+
+### TOC Scroll Area
+
+Scrollable container with mask:
+
+```tsx
+import { TOCScrollArea } from 'fumadocs-ui/components/toc';
+
+function TOC() {
+  return (
+    <TOCScrollArea>
+      <TOCItems />
+    </TOCScrollArea>
+  );
+}
+```
+
+Features:
+- Auto-scrolls to active item
+- Gradient mask at top/bottom
+- Thin scrollbar (hidden)
+- Min height constraint
+
+### TOC Thumb
+
+Animated position indicator:
+
+```tsx
+import { TocThumb } from 'fumadocs-ui/components/toc';
+import { useRef } from 'react';
+
+function CustomTOC() {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <TocThumb
+        containerRef={containerRef}
+        className="absolute left-0 w-1 bg-primary"
+      />
+      <TOCItems />
+    </div>
+  );
+}
+```
+
+The thumb:
+- Tracks active heading position
+- Smooth height/position transitions
+- Hides when no active items
+- Uses CSS custom properties `--fd-top` and `--fd-height`
+
+## Scroll Provider
+
+Enable auto-scroll to active items:
+
+```tsx
+import { ScrollProvider } from 'fumadocs-core/toc';
+import { useRef } from 'react';
+
+function TOC() {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  return (
+    <ScrollProvider containerRef={containerRef}>
+      <div ref={containerRef} className="overflow-auto">
+        {/* TOC items */}
+      </div>
+    </ScrollProvider>
+  );
+}
+```
+
+**Provider Props:**
+```ts
+interface ScrollProviderProps {
+  /**
+   * Scroll into view of container when active
+   */
+  containerRef: RefObject<HTMLElement | null>;
+  children?: ReactNode;
+}
+```
+
+## Active Detection
+
+Heading detection uses `IntersectionObserver`:
+
+```ts
+// Internal observer configuration
+const observer = new IntersectionObserver(onChange, {
+  rootMargin: '0px',
+  threshold: 0.98 // 98% visible
+});
+```
+
+**Behavior:**
+- Selects topmost visible heading by default
+- Selects last item when scrolled to bottom
+- Falls back to nearest heading when none visible
+- Supports multiple active items (when `single={false}`)
+
+## Styling
+
+### Depth Indentation
+
+```tsx
+import { TOCItem } from 'fumadocs-core/toc';
+import { cn } from '@/lib/utils';
+
+function StyledTOCItem({ item }: { item: TOCItemType }) {
+  return (
+    <TOCItem
+      href={item.url}
+      className={cn(
+        'block py-2 transition-colors',
+        item.depth <= 2 && 'pl-3',
+        item.depth === 3 && 'pl-6',
+        item.depth >= 4 && 'pl-9',
+        'data-[active=true]:text-primary'
+      )}
+    >
+      {item.title}
+    </TOCItem>
+  );
+}
+```
+
+### Custom Thumb
+
+```tsx
+function CustomTOC() {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <TocThumb
+        containerRef={containerRef}
+        className="
+          absolute
+          top-[--fd-top]
+          h-[--fd-height]
+          left-0
+          w-1
+          rounded-full
+          bg-gradient-to-b
+          from-primary
+          to-primary/50
+          transition-[top,height]
+          duration-300
+          ease-out
+          data-[hidden=true]:opacity-0
+        "
+      />
+      <TOCItems />
+    </div>
+  );
+}
+```
+
+## Empty State
+
+Handle pages without headings:
+
+```tsx
+import { useTOCItems } from 'fumadocs-ui/components/toc';
+
+function TOC() {
+  const items = useTOCItems();
+
+  if (items.length === 0) {
+    return (
+      <div className="text-sm text-muted-foreground">
+        No headings found
+      </div>
+    );
+  }
+
+  return <TOCItems />;
+}
+```
+
+## Advanced Example
+
+Full custom TOC implementation:
+
+```tsx
+import {
+  TOCProvider,
+  useTOCItems,
+  useActiveAnchor
+} from 'fumadocs-ui/components/toc';
+import { TOCItem, ScrollProvider } from 'fumadocs-core/toc';
+import { TocThumb } from 'fumadocs-ui/components/toc';
+import { useRef } from 'react';
+
+function CustomTOC({ items }: { items: TOCItemType[] }) {
+  return (
+    <TOCProvider toc={items} single={true}>
+      <TOCContent />
+    </TOCProvider>
+  );
+}
+
+function TOCContent() {
+  const items = useTOCItems();
+  const activeId = useActiveAnchor();
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  if (items.length === 0) {
+    return <p className="text-sm text-muted">No headings</p>;
+  }
+
+  return (
+    <ScrollProvider containerRef={containerRef}>
+      <div
+        ref={containerRef}
+        className="relative max-h-[calc(100vh-8rem)] overflow-auto"
+      >
+        <TocThumb
+          containerRef={containerRef}
+          className="absolute left-0 top-[--fd-top] h-[--fd-height] w-1 rounded-full bg-primary transition-all"
+        />
+        <nav className="space-y-1">
+          {items.map((item) => (
+            <TOCItem
+              key={item.url}
+              href={item.url}
+              className={`
+                block py-1.5 text-sm transition-colors
+                ${item.depth === 2 ? 'pl-0' : ''}
+                ${item.depth === 3 ? 'pl-4' : ''}
+                ${item.depth >= 4 ? 'pl-8' : ''}
+                ${activeId === item.url.slice(1) ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}
+              `}
+            >
+              {item.title}
+            </TOCItem>
+          ))}
+        </nav>
+      </div>
+    </ScrollProvider>
+  );
+}
+
+export default CustomTOC;
+```
+
+## Integration with MDX
+
+TOC is automatically generated from MDX headings:
+
+```mdx
+---
+title: My Page
+---
+
+## Introduction
+
+Content here...
+
+## Getting Started
+
+### Installation
+
+More content...
+
+### Configuration
+
+Even more...
+```
+
+Access in page:
+
+```tsx
+export default function Page({ params }: { params: { slug: string[] } }) {
+  const page = source.getPage(params.slug);
+  
+  // page.data.toc is automatically populated
+  console.log(page.data.toc);
+  // [
+  //   { title: 'Introduction', url: '#introduction', depth: 2 },
+  //   { title: 'Getting Started', url: '#getting-started', depth: 2 },
+  //   { title: 'Installation', url: '#installation', depth: 3 },
+  //   { title: 'Configuration', url: '#configuration', depth: 3 }
+  // ]
+}
+```
+
+## Best Practices
+
+1. **Single Mode**: Use `single={true}` for cleaner highlighting on long pages
+2. **Depth Limits**: Only show h2-h4 headings for better readability
+3. **Scroll Area**: Always wrap TOC in scroll area for long lists
+4. **Empty State**: Show helpful message when no headings exist
+5. **Mobile**: Hide TOC on mobile or show in collapsible section
+6. **Sticky Position**: Make TOC sticky for easy access while scrolling
+7. **Smooth Scroll**: Browser handles smooth scrolling automatically with anchor links

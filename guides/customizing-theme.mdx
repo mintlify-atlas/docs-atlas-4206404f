@@ -1,0 +1,450 @@
+---
+title: Customizing Your Theme
+description: Learn how to customize colors, typography, and styling in Fumadocs to match your brand
+---
+
+Fumadocs provides a flexible theming system built on Tailwind CSS 4, allowing you to customize every aspect of your documentation's appearance.
+
+## Theme Basics
+
+Fumadocs UI adds its own colors, animations, and utilities through a Tailwind CSS preset. The design system is inspired by Shadcn UI and uses CSS variables for easy customization.
+
+## Built-in Theme Presets
+
+<Steps>
+
+<Step>
+
+### Choose a Preset Theme
+
+Fumadocs comes with 11 beautiful preset themes. Import your preferred theme in your CSS:
+
+```css title="app/globals.css"
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css'; /* Change this line */
+@import 'fumadocs-ui/css/preset.css';
+```
+
+Available themes:
+- `neutral.css` - Clean neutral gray theme (default)
+- `black.css` - High-contrast black theme
+- `vitepress.css` - VitePress-inspired theme
+- `dusk.css` - Warm purple dusk theme
+- `catppuccin.css` - Popular pastel theme
+- `ocean.css` - Cool ocean blue theme
+- `purple.css` - Vibrant purple theme
+- `solar.css` - Warm solar theme
+- `emerald.css` - Fresh emerald green theme
+- `ruby.css` - Bold ruby red theme
+- `aspen.css` - Natural aspen theme
+
+</Step>
+
+<Step>
+
+### Shadcn UI Integration
+
+If you're using Shadcn UI, use the `shadcn` preset to automatically adopt colors from your existing theme:
+
+```css title="app/globals.css"
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/shadcn.css';
+@import 'fumadocs-ui/css/preset.css';
+```
+
+Fumadocs will automatically use your Shadcn UI color variables.
+
+</Step>
+
+<Step>
+
+### Preview Theme Changes
+
+Restart your dev server to see theme changes:
+
+```bash
+npm run dev
+```
+
+Navigate to your docs to see the new theme applied.
+
+</Step>
+
+</Steps>
+
+## Custom Color Scheme
+
+<Steps>
+
+<Step>
+
+### Understanding Color Variables
+
+Fumadocs uses CSS variables with the `fd-` prefix for theming. All colors use HSL format:
+
+```css
+--color-fd-background: hsl(0, 0%, 96%);
+--color-fd-foreground: hsl(0, 0%, 3.9%);
+```
+
+Key color variables:
+- `background` / `foreground` - Base colors
+- `muted` / `muted-foreground` - Secondary elements
+- `card` / `card-foreground` - Card backgrounds
+- `popover` / `popover-foreground` - Dropdown menus
+- `border` - Border colors
+- `primary` / `primary-foreground` - Primary actions
+- `secondary` / `secondary-foreground` - Secondary actions
+- `accent` / `accent-foreground` - Highlighted elements
+- `ring` - Focus ring color
+
+</Step>
+
+<Step>
+
+### Create Custom Light Theme
+
+Define your custom colors in `global.css` using the `@theme` directive:
+
+```css title="app/globals.css"
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/preset.css';
+
+@theme {
+  /* Light mode colors */
+  --color-fd-background: hsl(210, 40%, 98%);
+  --color-fd-foreground: hsl(222, 47%, 11%);
+  --color-fd-muted: hsl(210, 40%, 96%);
+  --color-fd-muted-foreground: hsl(215, 16%, 47%);
+  --color-fd-popover: hsl(0, 0%, 100%);
+  --color-fd-popover-foreground: hsl(222, 47%, 11%);
+  --color-fd-card: hsl(210, 40%, 96%);
+  --color-fd-card-foreground: hsl(222, 47%, 11%);
+  --color-fd-border: hsla(214, 32%, 91%, 80%);
+  --color-fd-primary: hsl(221, 83%, 53%);
+  --color-fd-primary-foreground: hsl(0, 0%, 100%);
+  --color-fd-secondary: hsl(210, 40%, 93%);
+  --color-fd-secondary-foreground: hsl(222, 47%, 11%);
+  --color-fd-accent: hsla(217, 91%, 60%, 20%);
+  --color-fd-accent-foreground: hsl(222, 47%, 11%);
+  --color-fd-ring: hsl(215, 16%, 47%);
+}
+```
+
+</Step>
+
+<Step>
+
+### Create Custom Dark Theme
+
+Define dark mode colors using the `.dark` class:
+
+```css title="app/globals.css"
+.dark {
+  --color-fd-background: hsl(222, 47%, 11%);
+  --color-fd-foreground: hsl(210, 40%, 98%);
+  --color-fd-muted: hsl(217, 33%, 17%);
+  --color-fd-muted-foreground: hsla(215, 20%, 65%, 0.8);
+  --color-fd-popover: hsl(222, 47%, 11%);
+  --color-fd-popover-foreground: hsl(210, 40%, 98%);
+  --color-fd-card: hsl(217, 33%, 15%);
+  --color-fd-card-foreground: hsl(210, 40%, 98%);
+  --color-fd-border: hsla(215, 20%, 65%, 15%);
+  --color-fd-primary: hsl(217, 91%, 60%);
+  --color-fd-primary-foreground: hsl(222, 47%, 11%);
+  --color-fd-secondary: hsl(217, 33%, 17%);
+  --color-fd-secondary-foreground: hsl(210, 40%, 98%);
+  --color-fd-accent: hsla(217, 91%, 60%, 25%);
+  --color-fd-accent-foreground: hsl(210, 40%, 98%);
+  --color-fd-ring: hsl(215, 20%, 65%);
+}
+```
+
+</Step>
+
+<Step>
+
+### Test Your Custom Theme
+
+Use the theme toggle in your docs to switch between light and dark modes and verify all colors work well in both themes.
+
+</Step>
+
+</Steps>
+
+## Layout Customization
+
+### Adjust Layout Width
+
+Customize the maximum width of your documentation layout:
+
+```css title="app/globals.css"
+:root {
+  --fd-layout-width: 1400px; /* Default: 1280px */
+}
+```
+
+Common values:
+- `1280px` - Default
+- `1400px` - Wider layout
+- `1600px` - Extra wide
+- `100%` - Full width
+
+### RTL (Right-to-Left) Support
+
+Enable RTL layout for languages like Arabic or Hebrew:
+
+```tsx title="app/layout.tsx"
+import { RootProvider } from 'fumadocs-ui/provider/next';
+import type { ReactNode } from 'react';
+
+export default function RootLayout({ children }: { children: ReactNode }) {
+  return (
+    <html lang="ar" dir="rtl" suppressHydrationWarning>
+      <body dir="rtl" className="flex flex-col min-h-screen">
+        <RootProvider dir="rtl">{children}</RootProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+## Typography Customization
+
+<Steps>
+
+<Step>
+
+### Add Custom Fonts
+
+Fumadocs doesn't include a default font. Add your preferred font using `next/font`:
+
+```tsx title="app/layout.tsx"
+import { GeistSans } from 'geist/font/sans';
+import { GeistMono } from 'geist/font/mono';
+import { RootProvider } from 'fumadocs-ui/provider/next';
+
+export default function RootLayout({ children }: { children: ReactNode }) {
+  return (
+    <html 
+      lang="en" 
+      className={`${GeistSans.variable} ${GeistMono.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="flex flex-col min-h-screen font-sans">
+        <RootProvider>{children}</RootProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+</Step>
+
+<Step>
+
+### Configure Font Variables
+
+Define font families in your Tailwind configuration:
+
+```css title="app/globals.css"
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+
+@theme {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui;
+  --font-mono: var(--font-geist-mono), ui-monospace, 'Courier New';
+}
+```
+
+</Step>
+
+<Step>
+
+### Customize Typography Plugin
+
+Fumadocs includes a built-in typography plugin (forked from Tailwind CSS Typography). Use the `prose` class for rich content:
+
+```tsx
+<div className="prose">
+  <h1>Beautiful Heading</h1>
+  <p>Well-styled paragraph text.</p>
+</div>
+```
+
+If you need to use `@tailwindcss/typography` alongside, change the class name to avoid conflicts:
+
+```css title="app/globals.css"
+@import 'tailwindcss';
+@plugin "@tailwindcss/typography" {
+  className: wysiwyg;
+}
+@import 'fumadocs-ui/css/preset.css';
+```
+
+</Step>
+
+</Steps>
+
+## Advanced Customization
+
+### Custom Sidebar Styling
+
+Customize sidebar appearance in your docs layout:
+
+```tsx title="app/docs/layout.tsx"
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+import { source } from '@/lib/source';
+import { baseOptions } from '@/lib/layout.shared';
+
+export default function Layout({ children }: LayoutProps<'/docs'>) {
+  return (
+    <DocsLayout
+      tree={source.getPageTree()}
+      {...baseOptions()}
+      sidebar={{
+        defaultOpenLevel: 0, // Collapse all by default
+        banner: (
+          <div className="p-4 bg-fd-primary/10 rounded-lg">
+            <p className="text-sm font-medium">New version available!</p>
+          </div>
+        ),
+      }}
+    >
+      {children}
+    </DocsLayout>
+  );
+}
+```
+
+### Custom Navigation
+
+Customize the navigation bar:
+
+```tsx title="lib/layout.shared.tsx"
+import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
+import { BookIcon, GithubIcon } from 'lucide-react';
+
+export function baseOptions(): BaseLayoutProps {
+  return {
+    nav: {
+      title: (
+        <>
+          <BookIcon className="size-5" />
+          <span className="font-bold">My Docs</span>
+        </>
+      ),
+    },
+    links: [
+      {
+        text: 'GitHub',
+        url: 'https://github.com/username/repo',
+        icon: <GithubIcon />,
+        external: true,
+      },
+    ],
+  };
+}
+```
+
+### Custom Theme Toggle
+
+The theme toggle is included by default. Customize it through the Root Provider:
+
+```tsx title="app/layout.tsx"
+<RootProvider
+  theme={{
+    enabled: true,
+    defaultTheme: 'system', // 'light', 'dark', or 'system'
+    storageKey: 'theme',
+  }}
+>
+  {children}
+</RootProvider>
+```
+
+## Styling MDX Components
+
+### Override Default Components
+
+Customize MDX components with your own styles:
+
+```tsx title="mdx-components.tsx"
+import defaultMdxComponents from 'fumadocs-ui/mdx';
+import type { MDXComponents } from 'mdx/types';
+
+export function getMDXComponents(components?: MDXComponents): MDXComponents {
+  return {
+    ...defaultMdxComponents,
+    h1: (props) => (
+      <h1 className="text-4xl font-bold mb-4 text-fd-primary" {...props} />
+    ),
+    a: (props) => (
+      <a className="text-fd-primary hover:underline font-medium" {...props} />
+    ),
+    ...components,
+  };
+}
+```
+
+### Custom Callout Styles
+
+Create custom callout variants:
+
+```mdx
+<Callout type="info" className="border-l-4 border-blue-500">
+  Custom styled callout
+</Callout>
+```
+
+## Color Palette Generator
+
+To generate a cohesive color palette:
+
+1. Choose a primary color (e.g., `hsl(221, 83%, 53%)`)
+2. Generate lighter/darker variants for background and foreground
+3. Create muted versions with reduced saturation
+4. Test contrast ratios for accessibility (aim for 4.5:1 minimum)
+
+Tools to help:
+- [HSL Color Picker](https://hslpicker.com/)
+- [Contrast Checker](https://webaim.org/resources/contrastchecker/)
+- [Coolors](https://coolors.co/) for palette generation
+
+## Best Practices
+
+1. **Maintain Consistency**: Use the same color variables throughout your documentation
+2. **Test Both Themes**: Always verify your customizations work in both light and dark modes
+3. **Check Accessibility**: Ensure sufficient contrast ratios for readability
+4. **Use Semantic Colors**: Follow the semantic naming (primary, secondary, accent) for predictable behavior
+5. **Start with Presets**: Begin with a preset theme and customize from there
+
+## Troubleshooting
+
+### Colors Not Changing
+
+If your custom colors aren't applied:
+- Ensure you're using the `@theme` directive in Tailwind CSS 4
+- Check that you're not importing a preset after your custom colors
+- Clear your browser cache and restart the dev server
+
+### Dark Mode Not Working
+
+If dark mode doesn't work:
+- Verify `suppressHydrationWarning` is on the `<html>` tag
+- Check that `.dark` class selector is used for dark theme variables
+- Ensure `RootProvider` wraps your application
+
+### Fonts Not Loading
+
+If custom fonts don't appear:
+- Verify the font variables are applied to the `<html>` tag
+- Check that Tailwind is configured to use the font variables
+- Ensure the font files are properly imported
+
+## Next Steps
+
+- [Add search functionality](/docs/guides/adding-search) to your themed docs
+- [Set up multiple docs](/docs/guides/multi-docs-setup) with different themes
+- Explore [UI components](/docs/ui/components) for more customization options

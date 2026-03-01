@@ -1,0 +1,452 @@
+---
+title: Internationalization
+description: Add multi-language support to your documentation
+---
+
+Fumadocs provides built-in internationalization (i18n) support for creating documentation in multiple languages.
+
+## Configuration
+
+Define your i18n configuration:
+
+```ts title="lib/i18n.ts"
+import { defineI18n } from 'fumadocs-core/i18n';
+
+export const i18n = defineI18n({
+  languages: ['en', 'es', 'fr', 'de'],
+  defaultLanguage: 'en',
+  hideLocale: 'default-locale',
+  parser: 'dot'
+});
+```
+
+### Configuration Options
+
+```ts
+interface I18nConfig<Languages extends string = string> {
+  /**
+   * Supported locale codes
+   * A page tree will be built for each language
+   */
+  languages: Languages[];
+
+  /**
+   * Default locale if not specified
+   */
+  defaultLanguage: Languages;
+
+  /**
+   * Don't show the locale prefix on URL
+   * 
+   * - 'always': Always hide the prefix
+   * - 'default-locale': Only hide the default locale
+   * - 'never': Never hide the prefix
+   * 
+   * @defaultValue 'never'
+   */
+  hideLocale?: 'always' | 'default-locale' | 'never';
+
+  /**
+   * Used by loader(), specify the way to parse i18n file structure
+   * 
+   * @defaultValue 'dot'
+   */
+  parser?: 'dot' | 'dir' | 'none';
+
+  /**
+   * Fallback language when page has no translations
+   * Default to defaultLanguage, no fallback when set to null
+   */
+  fallbackLanguage?: Languages | null;
+}
+```
+
+## File Structure
+
+Fumadocs supports different file organization patterns for i18n content.
+
+### Dot Notation (`parser: 'dot'`)
+
+Use dots in filenames to indicate locale:
+
+```
+content/
+  docs/
+    index.mdx          # Default language (en)
+    index.es.mdx       # Spanish
+    index.fr.mdx       # French
+    getting-started.mdx
+    getting-started.es.mdx
+    getting-started.fr.mdx
+```
+
+### Directory Structure (`parser: 'dir'`)
+
+Organize content in locale directories:
+
+```
+content/
+  docs/
+    en/
+      index.mdx
+      getting-started.mdx
+    es/
+      index.mdx
+      getting-started.mdx
+    fr/
+      index.mdx
+      getting-started.mdx
+```
+
+### No Parser (`parser: 'none'`)
+
+Manually specify locale for each file:
+
+```ts
+import { defineCollection } from 'fumadocs-mdx/config';
+
+export const docs = defineCollection({
+  dir: 'content/docs',
+  schema: {
+    locale: z.string()
+  }
+});
+```
+
+```mdx
+---
+title: Getting Started
+locale: en
+---
+```
+
+## URL Structure
+
+### Default Behavior (`hideLocale: 'never'`)
+
+All locales shown in URL:
+
+```
+/en/docs/getting-started
+/es/docs/getting-started
+/fr/docs/getting-started
+```
+
+### Hide Default Locale (`hideLocale: 'default-locale'`)
+
+Default language URL has no prefix:
+
+```
+/docs/getting-started        # English (default)
+/es/docs/getting-started     # Spanish
+/fr/docs/getting-started     # French
+```
+
+### Always Hide (`hideLocale: 'always'`)
+
+No locale prefix in URLs (uses `NextResponse.rewrite`):
+
+```
+/docs/getting-started  # All languages
+```
+
+## Source Integration
+
+Integrate i18n with your content source:
+
+```ts title="lib/source.ts"
+import { loader } from 'fumadocs-core/source';
+import { createMDXSource } from 'fumadocs-mdx';
+import { docs, meta } from '@/.source';
+import { i18n } from './i18n';
+
+export const source = loader({
+  baseUrl: '/docs',
+  source: createMDXSource(docs, meta),
+  i18n
+});
+```
+
+### Get Localized Content
+
+```ts
+// Get page tree for specific locale
+const tree = source.getPageTree('es');
+
+// Get all pages for a locale
+const pages = source.getPages('fr');
+
+// Get languages with their pages
+const languages = source.getLanguages();
+// Returns: Array<{ language: string, pages: Page[] }>
+
+// Get page with locale
+const page = source.getPage(['getting-started'], 'es');
+```
+
+## Middleware
+
+Handle locale detection and routing:
+
+```ts title="middleware.ts"
+import { createI18nMiddleware } from 'fumadocs-core/i18n/middleware';
+import { i18n } from './lib/i18n';
+
+export default createI18nMiddleware(i18n);
+
+export const config = {
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+};
+```
+
+The middleware:
+- Detects locale from URL
+- Redirects to appropriate locale
+- Handles `hideLocale` configuration
+- Sets locale cookies
+
+## Language Switcher
+
+Create a language switcher component:
+
+```tsx title="components/language-switcher.tsx"
+'use client';
+import { useParams, useRouter } from 'next/navigation';
+import { i18n } from '@/lib/i18n';
+
+export function LanguageSwitcher() {
+  const params = useParams();
+  const router = useRouter();
+  const currentLocale = params.lang as string || i18n.defaultLanguage;
+
+  const switchLanguage = (locale: string) => {
+    const currentPath = window.location.pathname;
+    const newPath = currentPath.replace(
+      new RegExp(`^/${currentLocale}`),
+      `/${locale}`
+    );
+    router.push(newPath);
+  };
+
+  return (
+    <select
+      value={currentLocale}
+      onChange={(e) => switchLanguage(e.target.value)}
+    >
+      {i18n.languages.map((lang) => (
+        <option key={lang} value={lang}>
+          {lang.toUpperCase()}
+        </option>
+      ))}
+    </select>
+  );
+}
+```
+
+## Fallback Language
+
+Configure fallback behavior for missing translations:
+
+```ts
+export const i18n = defineI18n({
+  languages: ['en', 'es', 'fr'],
+  defaultLanguage: 'en',
+  fallbackLanguage: 'en' // Fall back to English
+});
+```
+
+With `fallbackLanguage: null`, pages without translations will return 404.
+
+## Page Tree Navigation
+
+The page tree respects locale:
+
+```tsx title="app/[lang]/docs/layout.tsx"
+import { source } from '@/lib/source';
+
+export default function DocsLayout({
+  params
+}: {
+  params: { lang: string };
+}) {
+  const tree = source.getPageTree(params.lang);
+
+  return (
+    <DocsLayout tree={tree}>
+      {/* Your layout */}
+    </DocsLayout>
+  );
+}
+```
+
+## Search with I18n
+
+Create localized search indexes:
+
+```ts title="app/api/search/route.ts"
+import { createI18nSearchAPI } from 'fumadocs-core/search/server';
+import { source } from '@/lib/source';
+import { i18n } from '@/lib/i18n';
+
+export const { GET } = createI18nSearchAPI('advanced', {
+  i18n,
+  indexes: source.getPages().map((page) => ({
+    id: page.url,
+    title: page.data.title,
+    url: page.url,
+    locale: page.locale,
+    structuredData: page.data.structuredData
+  })),
+  localeMap: {
+    en: 'english',
+    es: 'spanish',
+    fr: 'french',
+    de: 'german'
+  }
+});
+```
+
+Client usage:
+
+```tsx
+import { useDocsSearch } from 'fumadocs-core/search/client';
+import { useParams } from 'next/navigation';
+
+export function Search() {
+  const params = useParams();
+  const locale = params.lang as string;
+
+  const { search, setSearch, query } = useDocsSearch({
+    type: 'fetch',
+    api: '/api/search',
+    locale // Search in current locale
+  });
+
+  // Render search UI...
+}
+```
+
+## Translated UI Text
+
+Provide translations for UI elements:
+
+```tsx title="app/[lang]/layout.tsx"
+import { I18nProvider } from 'fumadocs-ui/i18n';
+
+const translations = {
+  en: {
+    search: 'Search documentation...',
+    toc: 'On this page',
+    lastUpdate: 'Last updated on',
+    searchNoResults: 'No results found',
+    tocNoHeadings: 'No headings'
+  },
+  es: {
+    search: 'Buscar documentación...',
+    toc: 'En esta página',
+    lastUpdate: 'Última actualización',
+    searchNoResults: 'No se encontraron resultados',
+    tocNoHeadings: 'Sin encabezados'
+  }
+};
+
+export default function Layout({
+  params,
+  children
+}: {
+  params: { lang: string };
+  children: React.ReactNode;
+}) {
+  return (
+    <I18nProvider locale={params.lang} translations={translations}>
+      {children}
+    </I18nProvider>
+  );
+}
+```
+
+## Dynamic Routes
+
+Set up dynamic routing for localized pages:
+
+```tsx title="app/[lang]/docs/[[...slug]]/page.tsx"
+import { source } from '@/lib/source';
+import { notFound } from 'next/navigation';
+
+export default function Page({
+  params
+}: {
+  params: { lang: string; slug?: string[] };
+}) {
+  const page = source.getPage(params.slug ?? [], params.lang);
+
+  if (!page) notFound();
+
+  return (
+    <article>
+      <h1>{page.data.title}</h1>
+      <page.data.body />
+    </article>
+  );
+}
+
+export async function generateStaticParams() {
+  const params: { lang: string; slug: string[] }[] = [];
+
+  for (const lang of source.getLanguages()) {
+    for (const page of lang.pages) {
+      params.push({
+        lang: lang.language,
+        slug: page.slugs
+      });
+    }
+  }
+
+  return params;
+}
+```
+
+## Breadcrumbs with I18n
+
+Breadcrumbs work automatically with i18n:
+
+```tsx
+import { useBreadcrumb } from 'fumadocs-core/breadcrumb';
+import { useParams } from 'next/navigation';
+import { source } from '@/lib/source';
+
+export function Breadcrumbs() {
+  const params = useParams();
+  const locale = params.lang as string;
+  const tree = source.getPageTree(locale);
+  const breadcrumbs = useBreadcrumb(
+    window.location.pathname,
+    tree,
+    { includePage: true }
+  );
+
+  return (
+    <nav>
+      {breadcrumbs.map((item, i) => (
+        <span key={i}>
+          {item.url ? (
+            <a href={item.url}>{item.name}</a>
+          ) : (
+            <span>{item.name}</span>
+          )}
+        </span>
+      ))}
+    </nav>
+  );
+}
+```
+
+## Best Practices
+
+1. **Use defineI18n**: Always use the helper for type safety
+2. **Consistent Structure**: Keep the same file structure across all locales
+3. **Default Language**: Always provide content in your default language
+4. **URL Strategy**: Choose `hideLocale` based on your SEO strategy
+5. **Search Indexes**: Create separate search indexes per locale for better results
+6. **Fallback Content**: Use `fallbackLanguage` to show English content when translations are missing
+7. **Dynamic Routes**: Generate static params for all locale/slug combinations

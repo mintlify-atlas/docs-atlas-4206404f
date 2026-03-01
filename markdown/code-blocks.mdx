@@ -1,0 +1,677 @@
+---
+title: Code Blocks
+description: Syntax highlighting with Shiki, line numbers, highlighting, and more
+---
+
+Fumadocs uses Shiki for beautiful, accurate syntax highlighting with extensive customization options.
+
+## Basic Configuration
+
+```ts title="source.config.ts"
+import { defineConfig } from 'fumadocs-mdx/config';
+import { rehypeCode } from 'fumadocs-core/mdx-plugins';
+
+export default defineConfig({
+  mdxOptions: {
+    rehypePlugins: [
+      [rehypeCode, {
+        themes: {
+          light: 'github-light',
+          dark: 'github-dark',
+        },
+      }],
+    ],
+  },
+});
+```
+
+## Shiki Configuration
+
+### Themes
+
+Choose from Shiki's bundled themes or provide custom themes.
+
+#### Dual Themes (Recommended)
+
+```ts
+rehypePlugins: [
+  [rehypeCode, {
+    themes: {
+      light: 'github-light',
+      dark: 'github-dark',
+    },
+  }],
+]
+```
+
+**Available themes**: `github-light`, `github-dark`, `dracula`, `nord`, `monokai`, `one-dark-pro`, etc.
+
+#### Single Theme
+
+```ts
+rehypePlugins: [
+  [rehypeCode, {
+    theme: 'github-dark',
+  }],
+]
+```
+
+### Regex Engine
+
+Two engines are available:
+
+```ts
+rehypePlugins: [
+  [rehypeCode, {
+    engine: 'js', // or 'oniguruma'
+  }],
+]
+```
+
+**From** `/packages/core/src/mdx-plugins/rehype-code.ts:10`:
+
+- **`js`** (default): JavaScript-based regex engine, faster startup
+- **`oniguruma`**: WASM-powered engine, more accurate for complex grammars
+
+Engine implementation (from `/packages/core/src/highlight/index.ts:62`):
+
+```ts
+// JavaScript engine
+const configDefault = defineShikiConfig({
+  async createHighlighter() {
+    const { createHighlighter } = await import('shiki');
+    const { createJavaScriptRegexEngine } = await import('shiki/engine/javascript');
+    return createHighlighter({
+      langs: [],
+      themes: [],
+      engine: createJavaScriptRegexEngine(),
+    });
+  },
+});
+
+// WASM engine
+const configWASM = defineShikiConfig({
+  async createHighlighter() {
+    const { createHighlighter, createOnigurumaEngine } = await import('shiki');
+    return createHighlighter({
+      langs: [],
+      themes: [],
+      engine: createOnigurumaEngine(import('shiki/wasm')),
+    });
+  },
+});
+```
+
+### Language Loading
+
+#### Lazy Loading (Default)
+
+Load languages on-demand:
+
+```ts
+rehypePlugins: [
+  [rehypeCode, {
+    lazy: true, // default
+    // Only preloads: ['js', 'jsx', 'ts', 'tsx']
+  }],
+]
+```
+
+#### Preload Languages
+
+```ts
+rehypePlugins: [
+  [rehypeCode, {
+    lazy: true,
+    langs: ['js', 'jsx', 'ts', 'tsx', 'python', 'rust', 'go'],
+  }],
+]
+```
+
+#### Load All Languages
+
+```ts
+rehypePlugins: [
+  [rehypeCode, {
+    lazy: false, // Loads all bundled languages
+  }],
+]
+```
+
+## Code Block Features
+
+### Title
+
+Add a filename or title:
+
+```md
+```typescript title="example.ts"
+function hello() {
+  return 'world';
+}
+```
+```
+
+### Line Highlighting
+
+Highlight specific lines:
+
+```md
+```js {2-4}
+function example() {
+  // Line 2 - highlighted
+  // Line 3 - highlighted
+  // Line 4 - highlighted
+  return true;
+}
+```
+```
+
+**Multiple ranges**:
+
+```md
+```js {1,3-5,7}
+// Line 1 - highlighted
+const x = 1;
+// Lines 3-5 - highlighted
+const y = 2;
+const z = 3;
+const a = 4;
+// Line 7 - highlighted
+```
+```
+
+### Word Highlighting
+
+Highlight specific words or patterns:
+
+```md
+```js /useState/
+import { useState } from 'react';
+
+function Counter() {
+  const [count, setCount] = useState(0);
+  return <button onClick={() => setCount(count + 1)}>{count}</button>;
+}
+```
+```
+
+**Multiple patterns**:
+
+```md
+```js /useState/ /useEffect/
+```
+```
+
+### Diff Highlighting
+
+Show additions and deletions:
+
+```md
+```js
+function hello() {
+  console.log('old'); // [!code --]
+  console.log('new'); // [!code ++]
+}
+```
+```
+
+### Focus Mode
+
+Dim non-focused lines:
+
+```md
+```js
+function example() {
+  console.log('dimmed');
+  console.log('focused'); // [!code focus]
+  console.log('dimmed');
+}
+```
+```
+
+### Line Numbers
+
+Display line numbers:
+
+```md
+```js lineNumbers
+function hello() {
+  return 'world';
+}
+```
+```
+
+**Start from specific line**:
+
+```md
+```js lineNumbers=10
+// This is line 10
+// This is line 11
+```
+```
+
+Implementation (from `/packages/core/src/mdx-plugins/rehype-code.core.ts:50`):
+
+```ts
+function parseLineNumber(str: string, data: Record<string, unknown>) {
+  return str.replace(/lineNumbers=(\d+)|lineNumbers/, (_, ...args) => {
+    data['data-line-numbers'] = true;
+    if (args[0] !== undefined) {
+      data['data-line-numbers-start'] = Number(args[0]);
+    }
+    return '';
+  });
+}
+```
+
+## Built-in Transformers
+
+Fumadocs includes these Shiki transformers by default:
+
+### transformerNotationHighlight
+
+Highlight lines using `{1-3}` syntax:
+
+```md
+```js {1-3}
+// highlighted
+// highlighted
+// highlighted
+```
+```
+
+### transformerNotationWordHighlight
+
+Highlight words using `/pattern/` syntax:
+
+```md
+```js /console/
+console.log('highlighted');
+```
+```
+
+### transformerNotationDiff
+
+Diff markers with `// [!code ++]` and `// [!code --]`:
+
+```js
+const old = true; // [!code --]
+const new = true; // [!code ++]
+```
+
+### transformerNotationFocus
+
+Focus lines with `// [!code focus]`:
+
+```js
+console.log('dimmed');
+console.log('focused'); // [!code focus]
+```
+
+From `/packages/core/src/mdx-plugins/rehype-code.core.ts:25`:
+
+```ts
+transformers: [
+  transformerNotationHighlight({ matchAlgorithm: 'v3' }),
+  transformerNotationWordHighlight({ matchAlgorithm: 'v3' }),
+  transformerNotationDiff({ matchAlgorithm: 'v3' }),
+  transformerNotationFocus({ matchAlgorithm: 'v3' }),
+]
+```
+
+## Language Icons
+
+Automatic language icons in code blocks.
+
+### Default Icons
+
+Built-in icons for popular languages (from `/packages/core/src/mdx-plugins/transformer-icon.ts:29`):
+
+- JavaScript, TypeScript, React (JSX/TSX)
+- Python, Ruby, PHP, Go, Rust, C, C++
+- Swift, Zig, GraphQL, Prisma
+- Shell scripts, Vue
+
+### Icon Configuration
+
+```ts
+import { rehypeCode, type CodeBlockIcon } from 'fumadocs-core/mdx-plugins';
+
+rehypePlugins: [
+  [rehypeCode, {
+    icon: {
+      // Add custom icons
+      customIcons: {
+        'my-lang': {
+          viewBox: '0 0 24 24',
+          fill: 'currentColor',
+          d: 'M12 2L2 7v10l10 5 10-5V7z',
+        },
+      },
+      
+      // Language shortcuts
+      shortcuts: {
+        'nodejs': 'javascript',
+        'py': 'python',
+      },
+    },
+  }],
+]
+```
+
+### Disable Icons
+
+```ts
+rehypePlugins: [
+  [rehypeCode, {
+    icon: false,
+  }],
+]
+```
+
+## Custom Transformers
+
+Create custom Shiki transformers:
+
+```ts
+import { rehypeCode } from 'fumadocs-core/mdx-plugins';
+import type { ShikiTransformer } from 'shiki';
+
+const customTransformer: ShikiTransformer = {
+  name: 'custom-transformer',
+  
+  // Called once per code block
+  preprocess(code, options) {
+    // Modify code before highlighting
+    console.log('Language:', options.lang);
+    return code;
+  },
+  
+  // Called for each line
+  line(node, line) {
+    // Add line number as data attribute
+    node.properties['data-line'] = line;
+  },
+  
+  // Called for each token
+  span(node, line, col) {
+    // Add position data
+    node.properties['data-pos'] = `${line}:${col}`;
+  },
+  
+  // Called once after processing
+  postprocess(code) {
+    // Final modifications
+    return code;
+  },
+};
+
+rehypePlugins: [
+  [rehypeCode, {
+    transformers: [customTransformer],
+  }],
+]
+```
+
+## Meta String Filtering
+
+Filter or modify meta strings before processing:
+
+```ts
+rehypePlugins: [
+  [rehypeCode, {
+    filterMetaString: (meta) => {
+      // Remove custom attributes before Shiki processes
+      return meta.replace(/custom="[^"]*"/, '');
+    },
+  }],
+]
+```
+
+## Code Block Utilities
+
+### parseCodeBlockAttributes
+
+Parse custom attributes from meta strings:
+
+```ts
+import { parseCodeBlockAttributes } from 'fumadocs-core/mdx-plugins';
+
+const meta = 'title="example.ts" lineNumbers tab="TypeScript"';
+const { attributes, rest } = parseCodeBlockAttributes(meta, ['title', 'tab']);
+
+// attributes = { title: 'example.ts', tab: 'TypeScript' }
+// rest = 'lineNumbers'
+```
+
+### Meta String Parsing
+
+From `/packages/core/src/mdx-plugins/rehype-code.core.ts:39`:
+
+```ts
+parseMetaString(meta) {
+  const parsed = parseCodeBlockAttributes(meta, ['title', 'tab']);
+  const data: Record<string, unknown> = parsed.attributes;
+  parsed.rest = parseLineNumber(parsed.rest, data);
+  data.__parsed_raw = parsed.rest;
+  return data;
+}
+```
+
+## Advanced Examples
+
+### Multiple Features
+
+```md
+```typescript title="useCounter.ts" {5-7} /useState/ lineNumbers
+import { useState } from 'react';
+
+export function useCounter(initial = 0) {
+  const [count, setCount] = useState(initial);
+  const increment = () => setCount(c => c + 1);
+  const decrement = () => setCount(c => c - 1);
+  const reset = () => setCount(initial);
+  
+  return { count, increment, decrement, reset };
+}
+```
+```
+
+Features:
+- Title: `useCounter.ts`
+- Highlighted lines: 5-7
+- Highlighted word: `useState`
+- Line numbers enabled
+
+### Diff with Line Numbers
+
+```md
+```js title="api.js" lineNumbers=15
+function fetchUser(id) {
+  return fetch(`/api/user/${id}`) // [!code --]
+  return fetch(`/api/v2/users/${id}`) // [!code ++]
+    .then(res => res.json());
+}
+```
+```
+
+### Custom Theme Per Block
+
+Not directly supported, but you can create wrapper components:
+
+```tsx
+import { highlight } from 'fumadocs-core/highlight';
+
+export async function CodeBlock({ code, lang, theme }) {
+  const result = await highlight(code, {
+    lang,
+    theme,
+  });
+  
+  return <div>{result}</div>;
+}
+```
+
+## Programmatic Highlighting
+
+Use Shiki directly for runtime highlighting:
+
+```ts
+import { highlight, highlightHast } from 'fumadocs-core/highlight';
+
+// Get React element
+const element = await highlight('const x = 1;', {
+  lang: 'javascript',
+  themes: {
+    light: 'github-light',
+    dark: 'github-dark',
+  },
+});
+
+// Get HAST (for further processing)
+const hast = await highlightHast('const x = 1;', {
+  lang: 'javascript',
+  theme: 'github-dark',
+});
+```
+
+From `/packages/core/src/highlight/index.ts:46`:
+
+```ts
+export async function highlight(
+  code: string,
+  options: HighlightOptions,
+): Promise<ReactNode> {
+  const engine = options.engine ?? 'js';
+  return base.highlight(code, {
+    ...options,
+    config: engine === 'js' ? configDefault : configWASM,
+  });
+}
+```
+
+## Styling
+
+### CSS Variables
+
+Shiki generates CSS variables for theming:
+
+```css
+.shiki {
+  --shiki-light: #24292e;
+  --shiki-dark: #e1e4e8;
+  --shiki-light-bg: #ffffff;
+  --shiki-dark-bg: #0d1117;
+}
+```
+
+### Custom Styles
+
+```css
+/* Line highlighting */
+.highlighted {
+  background-color: rgba(255, 255, 0, 0.1);
+  border-left: 3px solid yellow;
+}
+
+/* Diff additions */
+.diff.add {
+  background-color: rgba(0, 255, 0, 0.1);
+}
+
+/* Diff deletions */
+.diff.remove {
+  background-color: rgba(255, 0, 0, 0.1);
+  text-decoration: line-through;
+}
+
+/* Line numbers */
+.line::before {
+  content: attr(data-line);
+  color: #6e7781;
+  margin-right: 1rem;
+}
+```
+
+## Performance Optimization
+
+### Lazy Language Loading
+
+Preload only essential languages:
+
+```ts
+rehypePlugins: [
+  [rehypeCode, {
+    lazy: true,
+    langs: ['js', 'ts', 'jsx', 'tsx'], // Common languages
+  }],
+]
+```
+
+### JavaScript Engine
+
+Use JS engine for faster builds:
+
+```ts
+rehypePlugins: [
+  [rehypeCode, {
+    engine: 'js', // ~30% faster than WASM
+  }],
+]
+```
+
+### Reduce Transformers
+
+Disable unused transformers:
+
+```ts
+import { createRehypeCode } from 'fumadocs-core/mdx-plugins/rehype-code.core';
+import { transformerNotationHighlight } from '@shikijs/transformers';
+
+rehypePlugins: [
+  [rehypeCode, {
+    transformers: [
+      transformerNotationHighlight(), // Only line highlighting
+    ],
+  }],
+]
+```
+
+## Troubleshooting
+
+### Language Not Found
+
+If you see "Language not found" errors with lazy loading:
+
+```ts
+rehypePlugins: [
+  [rehypeCode, {
+    lazy: true,
+    langs: ['js', 'ts', 'python', 'your-language'],
+  }],
+]
+```
+
+### Theme Not Applied
+
+Ensure CSS variables are defined:
+
+```css
+:root {
+  color-scheme: light dark;
+}
+```
+
+### Slow Build Times
+
+Enable lazy loading and use JS engine:
+
+```ts
+rehypePlugins: [
+  [rehypeCode, {
+    lazy: true,
+    engine: 'js',
+  }],
+]
+```

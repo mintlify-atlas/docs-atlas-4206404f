@@ -1,0 +1,740 @@
+---
+title: Manual Installation
+description: Add Fumadocs to an existing React project with full control over setup
+icon: Wrench
+---
+
+This guide walks you through manually installing Fumadocs into an existing React project. Unlike the automated CLI setup, manual installation gives you complete control over every aspect of the configuration.
+
+<Info>
+  **Starting from scratch?** Use the [Quick Start](/quick-start) guide with our CLI tool for faster setup.
+</Info>
+
+## Prerequisites
+
+Before you begin, ensure your project has:
+
+- **Node.js 22+** installed
+- A React framework set up (Next.js 16, Tanstack Start, React Router, or Waku)
+- **Tailwind CSS 4** configured
+- Basic understanding of your framework's routing system
+
+<Warning>
+  All Fumadocs packages are **ESM-only**. Make sure your project is configured for ES modules.
+</Warning>
+
+## Installation Steps
+
+We'll use **Next.js 16** as the example framework, but the concepts apply to all supported frameworks.
+
+<Steps>
+
+<Step title="Install Core Packages">
+  
+Install the essential Fumadocs packages:
+
+<CodeGroup>
+
+```bash npm
+npm install fumadocs-core fumadocs-ui fumadocs-mdx
+```
+
+```bash pnpm
+pnpm add fumadocs-core fumadocs-ui fumadocs-mdx
+```
+
+```bash yarn
+yarn add fumadocs-core fumadocs-ui fumadocs-mdx
+```
+
+```bash bun
+bun add fumadocs-core fumadocs-ui fumadocs-mdx
+```
+
+</CodeGroup>
+
+**Package breakdown:**
+- `fumadocs-core` - Core functionality (search, page trees, content sources)
+- `fumadocs-ui` - Default theme with layouts and components
+- `fumadocs-mdx` - MDX content source adapter
+
+</Step>
+
+<Step title="Configure Fumadocs MDX">
+  
+Create a configuration file for your MDX content:
+
+```typescript title="source.config.ts"
+import { defineConfig, defineDocs } from 'fumadocs-mdx/config';
+import { metaSchema, pageSchema } from 'fumadocs-core/source/schema';
+
+// Define your docs collection
+export const docs = defineDocs({
+  dir: 'content/docs',        // Directory for MDX files
+  docs: {
+    schema: pageSchema,        // Zod schema for frontmatter validation
+    postprocess: {
+      includeProcessedMarkdown: true, // Enable search indexing
+    },
+  },
+  meta: {
+    schema: metaSchema,        // Schema for meta.json navigation files
+  },
+});
+
+// Global MDX configuration
+export default defineConfig({
+  mdxOptions: {
+    // Add custom remark/rehype plugins here
+    // remarkPlugins: [],
+    // rehypePlugins: [],
+  },
+});
+```
+
+<Tip>
+  The `pageSchema` and `metaSchema` from Fumadocs Core provide TypeScript validation for your frontmatter. You can extend these schemas with custom fields.
+</Tip>
+
+</Step>
+
+<Step title="Set Up Next.js Integration">
+  
+Integrate Fumadocs MDX with Next.js in your config:
+
+```javascript title="next.config.mjs"
+import { createMDX } from 'fumadocs-mdx/next';
+
+const withMDX = createMDX();
+
+/** @type {import('next').NextConfig} */
+const config = {
+  reactStrictMode: true,
+};
+
+export default withMDX(config);
+```
+
+This plugin:
+- Processes MDX files during the build
+- Generates TypeScript types for your content
+- Enables hot reload for MDX changes
+
+</Step>
+
+<Step title="Create Content Source">
+  
+Set up the content loader that Fumadocs will use:
+
+```typescript title="lib/source.ts"
+import { docs } from 'fumadocs-mdx:collections/server';
+import { loader } from 'fumadocs-core/source';
+import { lucideIconsPlugin } from 'fumadocs-core/source/lucide-icons';
+
+export const source = loader({
+  baseUrl: '/docs',                      // Base URL for documentation pages
+  source: docs.toFumadocsSource(),       // Use Fumadocs MDX as content source
+  plugins: [lucideIconsPlugin()],        // Enable Lucide icon support
+});
+```
+
+**Available plugins:**
+- `lucideIconsPlugin()` - Render Lucide React icons by name
+- Custom plugins - Implement the plugin interface for transformations
+
+</Step>
+
+<Step title="Configure Root Layout">
+  
+Wrap your application with the Fumadocs provider:
+
+```tsx title="app/layout.tsx"
+import { RootProvider } from 'fumadocs-ui/provider/next';
+import type { ReactNode } from 'react';
+import './global.css';
+
+export default function RootLayout({ children }: { children: ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body className="flex flex-col min-h-screen">
+        <RootProvider>
+          {children}
+        </RootProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+**Important:**
+- `suppressHydrationWarning` - Required for theme switching
+- `className="flex flex-col min-h-screen"` - Ensures proper layout behavior
+- `RootProvider` - Provides context for theming and search
+
+</Step>
+
+<Step title="Add Tailwind Styles">
+  
+Import Fumadocs UI styles in your global CSS:
+
+```css title="app/global.css"
+@import 'tailwindcss';
+
+/* Fumadocs UI color preset (choose one) */
+@import 'fumadocs-ui/css/neutral.css';   /* Gray theme (default) */
+/* @import 'fumadocs-ui/css/blue.css'; */
+/* @import 'fumadocs-ui/css/green.css'; */
+
+/* Required Fumadocs preset styles */
+@import 'fumadocs-ui/css/preset.css';
+```
+
+<Info>
+  Fumadocs doesn't include a default font. Import one from `next/font` or use your existing font stack.
+</Info>
+
+</Step>
+
+<Step title="Create Shared Layout Options">
+  
+Define shared configuration for your layouts:
+
+```tsx title="lib/layout.shared.tsx"
+import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
+
+export function baseOptions(): BaseLayoutProps {
+  return {
+    nav: {
+      title: 'My Documentation',
+      // Add navigation items
+      // links: [
+      //   { text: 'Home', url: '/' },
+      //   { text: 'Docs', url: '/docs' },
+      // ],
+    },
+    // Enable search
+    // search: true,
+  };
+}
+```
+
+This function returns options used by both the docs layout and other layouts.
+
+</Step>
+
+<Step title="Set Up Docs Layout">
+  
+Create the layout for your documentation pages:
+
+```tsx title="app/docs/layout.tsx"
+import { source } from '@/lib/source';
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+import { baseOptions } from '@/lib/layout.shared';
+import type { ReactNode } from 'react';
+
+export default function Layout({ children }: { children: ReactNode }) {
+  return (
+    <DocsLayout tree={source.getPageTree()} {...baseOptions()}>
+      {children}
+    </DocsLayout>
+  );
+}
+```
+
+The `DocsLayout` component provides:
+- Sidebar navigation with the page tree
+- Breadcrumbs
+- Table of contents
+- Theme toggle
+- Mobile-responsive navigation
+
+</Step>
+
+<Step title="Create Dynamic Page Route">
+  
+Set up the catch-all route that renders documentation pages:
+
+```tsx title="app/docs/[[...slug]]/page.tsx"
+import { source } from '@/lib/source';
+import { DocsPage, DocsBody } from 'fumadocs-ui/layouts/docs/page';
+import { notFound } from 'next/navigation';
+
+interface PageProps {
+  params: Promise<{ slug?: string[] }>;
+}
+
+export default async function Page({ params }: PageProps) {
+  const { slug = [] } = await params;
+  const page = source.getPage(slug);
+
+  if (!page) notFound();
+
+  const MDX = page.data.body;
+
+  return (
+    <DocsPage
+      toc={page.data.toc}
+      lastUpdate={page.data.lastModified}
+      full={page.data.full}
+    >
+      <DocsBody>
+        <h1>{page.data.title}</h1>
+        <MDX />
+      </DocsBody>
+    </DocsPage>
+  );
+}
+
+export async function generateStaticParams() {
+  return source.getPages().map((page) => ({
+    slug: page.slugs,
+  }));
+}
+
+export async function generateMetadata({ params }: PageProps) {
+  const { slug = [] } = await params;
+  const page = source.getPage(slug);
+
+  if (!page) notFound();
+
+  return {
+    title: page.data.title,
+    description: page.data.description,
+  };
+}
+```
+
+**Key features:**
+- `[[...slug]]` - Optional catch-all route (handles `/docs` and `/docs/...`)
+- `generateStaticParams()` - Enables Static Site Generation
+- `generateMetadata()` - SEO-friendly metadata
+
+</Step>
+
+<Step title="Configure MDX Components">
+  
+Export MDX components for use in your content:
+
+```tsx title="mdx-components.tsx"
+import defaultComponents from 'fumadocs-ui/mdx';
+import type { MDXComponents } from 'mdx/types';
+
+export function useMDXComponents(components: MDXComponents): MDXComponents {
+  return {
+    ...defaultComponents,
+    ...components,
+  };
+}
+```
+
+This enables Fumadocs components (Card, Tabs, Callout, etc.) in your MDX files.
+
+</Step>
+
+<Step title="Add Search API Route">
+  
+Create an API endpoint for document search:
+
+```typescript title="app/api/search/route.ts"
+import { source } from '@/lib/source';
+import { createFromSource } from 'fumadocs-core/search/server';
+
+export const { GET } = createFromSource(source);
+```
+
+This endpoint powers the built-in search UI with Orama full-text search.
+
+<Tip>
+  You can replace this with other search providers like Algolia by using different adapters from `fumadocs-core/search`.
+</Tip>
+
+</Step>
+
+<Step title="Create Content Directory">
+  
+Create the directory structure for your MDX files:
+
+```bash
+mkdir -p content/docs
+```
+
+Add your first documentation page:
+
+```mdx title="content/docs/index.mdx"
+---
+title: Welcome
+description: Getting started with our documentation
+---
+
+## Hello World
+
+This is your first documentation page built with Fumadocs!
+
+<Note>
+  You can use special components like this Note!
+</Note>
+
+### Next Steps
+
+- Read about [navigation structure](/docs/navigation)
+- Explore [available components](/docs/components)
+- Learn about [customization](/docs/customization)
+```
+
+</Step>
+
+</Steps>
+
+## Project Structure
+
+After manual installation, your project should look like this:
+
+```
+your-project/
+├── app/
+│   ├── layout.tsx              # Root layout with RootProvider
+│   ├── global.css              # Global styles with Fumadocs imports
+│   ├── docs/
+│   │   ├── layout.tsx          # Docs layout
+│   │   └── [[...slug]]/
+│   │       └── page.tsx        # Dynamic page renderer
+│   └── api/
+│       └── search/
+│           └── route.ts        # Search endpoint
+├── content/
+│   └── docs/
+│       ├── index.mdx           # Homepage
+│       └── ...                 # Your other MDX files
+├── lib/
+│   ├── source.ts               # Content source configuration
+│   └── layout.shared.tsx       # Shared layout options
+├── source.config.ts            # Fumadocs MDX config
+├── mdx-components.tsx          # MDX component exports
+├── next.config.mjs             # Next.js config with MDX plugin
+└── package.json
+```
+
+## Verify Installation
+
+Start your development server:
+
+<CodeGroup>
+
+```bash npm
+npm run dev
+```
+
+```bash pnpm
+pnpm dev
+```
+
+```bash yarn
+yarn dev
+```
+
+```bash bun
+bun dev
+```
+
+</CodeGroup>
+
+Navigate to **http://localhost:3000/docs** and verify:
+
+- ✅ Documentation page renders
+- ✅ Sidebar navigation appears
+- ✅ Theme toggle works
+- ✅ Search opens with Cmd+K / Ctrl+K
+
+## Framework-Specific Instructions
+
+<Tabs items={['Next.js', 'React Router', 'Tanstack Start', 'Waku']}>
+
+<Tab value="Next.js">
+  
+### Next.js 16 (App Router)
+
+The instructions above are for Next.js. Additional configuration:
+
+**Static Export** (optional):
+
+```javascript title="next.config.mjs"
+const config = {
+  output: 'export',
+  images: {
+    unoptimized: true,
+  },
+};
+```
+
+**Base Path** (for subpath deployment):
+
+```javascript title="next.config.mjs"
+const config = {
+  basePath: '/docs',
+};
+```
+
+</Tab>
+
+<Tab value="React Router">
+  
+### React Router 7
+
+Install Fumadocs for React Router:
+
+```bash
+pnpm add fumadocs-ui fumadocs-core fumadocs-mdx
+```
+
+In your Vite config:
+
+```typescript title="vite.config.ts"
+import { defineConfig } from 'vite';
+import { fumadocsVitePlugin } from 'fumadocs-mdx/vite';
+
+export default defineConfig({
+  plugins: [
+    fumadocsVitePlugin(),
+  ],
+  resolve: {
+    noExternal: ['fumadocs-core', 'fumadocs-ui'],
+  },
+});
+```
+
+<Info>
+  React Router uses file-based routing. Structure your routes according to React Router conventions.
+</Info>
+
+</Tab>
+
+<Tab value="Tanstack Start">
+  
+### Tanstack Start
+
+Tanstack Start configuration:
+
+```typescript title="app.config.ts"
+import { defineConfig } from '@tanstack/start/config';
+import { fumadocsMdx } from 'fumadocs-mdx/vite';
+
+export default defineConfig({
+  vite: {
+    plugins: [fumadocsMdx()],
+  },
+});
+```
+
+Routing follows Tanstack Start's file conventions.
+
+</Tab>
+
+<Tab value="Waku">
+  
+### Waku
+
+Waku integration:
+
+```typescript title="waku.config.ts"
+import { defineConfig } from 'waku/config';
+import { fumadocsMdx } from 'fumadocs-mdx/vite';
+
+export default defineConfig({
+  vite: {
+    plugins: [fumadocsMdx()],
+  },
+});
+```
+
+</Tab>
+
+</Tabs>
+
+## Advanced Configuration
+
+### Custom Frontmatter Schema
+
+Extend the default schema with custom fields:
+
+```typescript title="source.config.ts"
+import { z } from 'zod';
+import { pageSchema } from 'fumadocs-core/source/schema';
+
+const customSchema = pageSchema.extend({
+  author: z.string().optional(),
+  category: z.enum(['guide', 'reference', 'tutorial']).optional(),
+  featured: z.boolean().default(false),
+});
+
+export const docs = defineDocs({
+  dir: 'content/docs',
+  docs: {
+    schema: customSchema,
+  },
+});
+```
+
+### Multiple Content Collections
+
+Define separate collections for docs, blog, etc.:
+
+```typescript title="source.config.ts"
+export const docs = defineDocs({
+  dir: 'content/docs',
+});
+
+export const blog = defineDocs({
+  dir: 'content/blog',
+});
+
+export default defineConfig({ mdxOptions: {} });
+```
+
+Create separate loaders:
+
+```typescript title="lib/source.ts"
+import { docs, blog } from 'fumadocs-mdx:collections/server';
+
+export const docsSource = loader({
+  baseUrl: '/docs',
+  source: docs.toFumadocsSource(),
+});
+
+export const blogSource = loader({
+  baseUrl: '/blog',
+  source: blog.toFumadocsSource(),
+});
+```
+
+### Custom Search Provider
+
+Replace Orama with Algolia:
+
+```typescript title="app/api/search/route.ts"
+import { createFromAlgolia } from 'fumadocs-core/search/algolia';
+
+export const { GET } = createFromAlgolia({
+  appId: process.env.ALGOLIA_APP_ID!,
+  apiKey: process.env.ALGOLIA_API_KEY!,
+  indexName: 'docs',
+});
+```
+
+### Sidebar Tabs (Multi-Docs)
+
+Create multiple documentation sections:
+
+```typescript title="app/docs/layout.tsx"
+const tabs = [
+  { title: 'User Guide', url: '/docs/guide' },
+  { title: 'API Reference', url: '/docs/api' },
+  { title: 'Examples', url: '/docs/examples' },
+];
+
+export default function Layout({ children }) {
+  return (
+    <DocsLayout 
+      tree={source.getPageTree()} 
+      tabs={tabs}
+      {...baseOptions()}
+    >
+      {children}
+    </DocsLayout>
+  );
+}
+```
+
+## Troubleshooting
+
+<Accordion title="Import errors with fumadocs-mdx:collections/server">
+  
+Webpack resolves import namespaces before your tsconfig aliases. Solution:
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "paths": {
+      "collections/*": [".source/*"]
+    }
+  }
+}
+```
+
+Then update imports:
+
+```typescript title="lib/source.ts"
+import { docs } from 'collections/server';
+```
+
+</Accordion>
+
+<Accordion title="React context errors with Vite">
+  
+Vite pre-bundling issues. Add to your Vite config:
+
+```typescript title="vite.config.ts"
+export default defineConfig({
+  resolve: {
+    noExternal: ['fumadocs-core', 'fumadocs-ui', 'fumadocs-openapi', '@fumadocs/base-ui'],
+  },
+});
+```
+
+</Accordion>
+
+<Accordion title="Styles not loading">
+  
+Ensure you've imported Fumadocs styles:
+
+```css title="global.css"
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+```
+
+And applied the required body class:
+
+```tsx
+<body className="flex flex-col min-h-screen">
+```
+
+</Accordion>
+
+<Accordion title="Pages not generating statically">
+  
+Make sure you've implemented `generateStaticParams()`:
+
+```typescript
+export async function generateStaticParams() {
+  return source.getPages().map((page) => ({
+    slug: page.slugs,
+  }));
+}
+```
+
+</Accordion>
+
+## Next Steps
+
+Now that Fumadocs is installed:
+
+<CardGroup cols={2}>
+  <Card title="Navigation" href="/docs/navigation" icon="sitemap">
+    Learn how to structure your docs and customize navigation
+  </Card>
+  
+  <Card title="Components" href="/docs/ui/components" icon="puzzle-piece">
+    Explore all available UI components
+  </Card>
+  
+  <Card title="Search" href="/docs/search" icon="search">
+    Configure document search providers
+  </Card>
+  
+  <Card title="Theming" href="/docs/ui/theme" icon="palette">
+    Customize colors and styling
+  </Card>
+</CardGroup>
+
+<Tip>
+  Need help? Join our [Discord community](https://discord.gg/fumadocs) or check [GitHub Discussions](https://github.com/fuma-nama/fumadocs/discussions).
+</Tip>

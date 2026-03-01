@@ -1,0 +1,431 @@
+---
+title: Creating Your First Documentation Page
+description: Step-by-step guide to creating and configuring your first documentation page with Fumadocs
+---
+
+Learn how to create your first documentation page from scratch, configure your content source, and set up the basic structure for your docs site.
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- Node.js 18+ installed
+- A Next.js 16 application with Tailwind CSS 4
+- Basic familiarity with React and MDX
+
+## Installation
+
+<Steps>
+
+<Step>
+
+### Install Fumadocs Packages
+
+Install the core Fumadocs packages:
+
+```bash
+npm i fumadocs-ui fumadocs-core fumadocs-mdx
+```
+
+These packages provide:
+- **fumadocs-ui**: Pre-built UI components and layouts
+- **fumadocs-core**: Core functionality for loading and managing docs
+- **fumadocs-mdx**: MDX content source integration
+
+</Step>
+
+<Step>
+
+### Configure Fumadocs MDX
+
+Create a `source.config.ts` file in your project root:
+
+```ts title="source.config.ts"
+import { defineConfig, defineDocs } from 'fumadocs-mdx/config';
+
+export const docs = defineDocs({
+  dir: 'content/docs',
+});
+
+export default defineConfig();
+```
+
+This configures Fumadocs MDX to look for documentation files in the `content/docs` directory.
+
+</Step>
+
+<Step>
+
+### Set Up Root Layout
+
+Wrap your application with the Root Provider in `app/layout.tsx`:
+
+```tsx title="app/layout.tsx"
+import { RootProvider } from 'fumadocs-ui/provider/next';
+import type { ReactNode } from 'react';
+
+export default function Layout({ children }: { children: ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body className="flex flex-col min-h-screen">
+        <RootProvider>{children}</RootProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+The `suppressHydrationWarning` prop is needed for theme support, and the flex classes ensure proper layout.
+
+</Step>
+
+<Step>
+
+### Add Fumadocs Styles
+
+Import Fumadocs CSS in your `global.css`:
+
+```css title="app/globals.css"
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+```
+
+This imports:
+- Tailwind CSS base styles
+- Fumadocs neutral theme (you can choose other themes)
+- Fumadocs preset with utilities and components
+
+</Step>
+
+<Step>
+
+### Create Source Loader
+
+Create `lib/source.ts` to load your documentation:
+
+```ts title="lib/source.ts"
+import { docs } from 'fumadocs-mdx:collections/server';
+import { loader } from 'fumadocs-core/source';
+
+export const source = loader({
+  baseUrl: '/docs',
+  source: docs.toFumadocsSource(),
+});
+```
+
+The `loader` function creates a source object that provides methods to access your documentation pages and generate navigation.
+
+</Step>
+
+<Step>
+
+### Configure MDX Components
+
+Create `mdx-components.tsx` in your root directory:
+
+```tsx title="mdx-components.tsx"
+import defaultMdxComponents from 'fumadocs-ui/mdx';
+import type { MDXComponents } from 'mdx/types';
+
+export function getMDXComponents(components?: MDXComponents): MDXComponents {
+  return {
+    ...defaultMdxComponents,
+    ...components,
+  };
+}
+```
+
+This provides default MDX components like Cards, Callouts, Tabs, and more.
+
+</Step>
+
+<Step>
+
+### Create Shared Layout Options
+
+Create `lib/layout.shared.tsx` for reusable layout configuration:
+
+```tsx title="lib/layout.shared.tsx"
+import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
+
+export function baseOptions(): BaseLayoutProps {
+  return {
+    nav: {
+      title: 'My Docs',
+    },
+  };
+}
+```
+
+</Step>
+
+<Step>
+
+### Set Up Docs Layout
+
+Create the docs layout at `app/docs/layout.tsx`:
+
+```tsx title="app/docs/layout.tsx"
+import { source } from '@/lib/source';
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+import { baseOptions } from '@/lib/layout.shared';
+
+export default function Layout({ children }: LayoutProps<'/docs'>) {
+  return (
+    <DocsLayout tree={source.getPageTree()} {...baseOptions()}>
+      {children}
+    </DocsLayout>
+  );
+}
+```
+
+The `DocsLayout` component provides:
+- Sidebar navigation with collapsible sections
+- Table of contents
+- Breadcrumbs
+- Theme switcher
+
+</Step>
+
+<Step>
+
+### Create Dynamic Page Route
+
+Create `app/docs/[[...slug]]/page.tsx` for rendering documentation pages:
+
+```tsx title="app/docs/[[...slug]]/page.tsx"
+import { source } from '@/lib/source';
+import { DocsBody, DocsDescription, DocsPage, DocsTitle } from 'fumadocs-ui/layouts/docs/page';
+import { notFound } from 'next/navigation';
+import { getMDXComponents } from '@/mdx-components';
+import type { Metadata } from 'next';
+
+export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
+  const params = await props.params;
+  const page = source.getPage(params.slug);
+  if (!page) notFound();
+
+  const MDX = page.data.body;
+
+  return (
+    <DocsPage toc={page.data.toc} full={page.data.full}>
+      <DocsTitle>{page.data.title}</DocsTitle>
+      <DocsDescription>{page.data.description}</DocsDescription>
+      <DocsBody>
+        <MDX components={getMDXComponents()} />
+      </DocsBody>
+    </DocsPage>
+  );
+}
+
+export async function generateStaticParams() {
+  return source.generateParams();
+}
+
+export async function generateMetadata(props: PageProps<'/docs/[[...slug]]'>): Promise<Metadata> {
+  const params = await props.params;
+  const page = source.getPage(params.slug);
+  if (!page) notFound();
+
+  return {
+    title: page.data.title,
+    description: page.data.description,
+  };
+}
+```
+
+</Step>
+
+<Step>
+
+### Create Your First MDX Page
+
+Create your first documentation page at `content/docs/index.mdx`:
+
+```mdx title="content/docs/index.mdx"
+---
+title: Welcome to My Documentation
+description: Get started with our comprehensive documentation
+---
+
+## Introduction
+
+Welcome to the documentation! This is your first page.
+
+### Features
+
+- **Fast**: Built with Next.js for optimal performance
+- **Beautiful**: Clean and modern UI out of the box
+- **Customizable**: Easily theme and extend
+
+### Quick Links
+
+<Cards>
+  <Card title="Getting Started" href="/docs/getting-started" />
+  <Card title="API Reference" href="/docs/api" />
+</Cards>
+
+## Next Steps
+
+1. Create more documentation pages
+2. Customize your theme
+3. Add search functionality
+```
+
+</Step>
+
+<Step>
+
+### Start Development Server
+
+Run your development server:
+
+```bash
+npm run dev
+```
+
+Visit `http://localhost:3000/docs` to see your first documentation page!
+
+</Step>
+
+</Steps>
+
+## Understanding the Structure
+
+### File-Based Routing
+
+Fumadocs uses file-based routing. Your file structure in `content/docs/` directly maps to URL paths:
+
+```
+content/docs/
+├── index.mdx           → /docs
+├── getting-started.mdx → /docs/getting-started
+└── api/
+    ├── index.mdx       → /docs/api
+    └── reference.mdx   → /docs/api/reference
+```
+
+### Frontmatter
+
+Every MDX file should include frontmatter with metadata:
+
+```mdx
+---
+title: Page Title
+description: Page description for SEO
+icon: Book
+full: false
+---
+```
+
+- **title**: Page title (required)
+- **description**: SEO description
+- **icon**: Icon from lucide-react
+- **full**: Whether to use full-width layout
+
+### Built-in Components
+
+Fumadocs provides many built-in components:
+
+- **Callouts** - Highlight important information with different styles (info, warning, tip, danger)
+- **Tabs** - Organize content with tabbed interfaces for package managers or code examples
+- **Steps** - Create sequential instructions with numbered steps
+- **Cards** - Display feature grids and navigation links
+- **Code Blocks** - Syntax-highlighted code with copy buttons and line numbers
+
+Example usage:
+
+```jsx
+<Note>This is an informational callout</Note>
+
+<Warning>This is a warning</Warning>
+```
+
+## Adding More Pages
+
+To add more documentation pages, simply create new MDX files:
+
+```mdx title="content/docs/getting-started.mdx"
+---
+title: Getting Started
+description: Learn how to get started with our platform
+---
+
+## Installation
+
+Install the package:
+
+```bash
+npm install my-package
+```
+
+## Usage
+
+Import and use:
+
+```tsx
+import { MyComponent } from 'my-package';
+
+export default function App() {
+  return <MyComponent />;
+}
+```
+```
+
+## Organizing with Folders
+
+Create folders to organize related documentation:
+
+```
+content/docs/
+├── index.mdx
+├── guides/
+│   ├── index.mdx
+│   ├── installation.mdx
+│   └── configuration.mdx
+└── api/
+    ├── index.mdx
+    └── reference.mdx
+```
+
+Add a `meta.json` file to customize folder display:
+
+```json title="content/docs/guides/meta.json"
+{
+  "title": "Guides",
+  "icon": "Book",
+  "pages": ["installation", "configuration"]
+}
+```
+
+## Next Steps
+
+Now that you have your first documentation page:
+
+1. [Customize the theme](/docs/guides/customizing-theme) to match your brand
+2. [Add search functionality](/docs/guides/adding-search) for better discoverability
+3. [Set up multiple docs](/docs/guides/multi-docs-setup) for different products
+
+## Troubleshooting
+
+### Page Not Found
+
+If your page shows 404:
+- Check that the MDX file exists in `content/docs/`
+- Verify frontmatter includes `title`
+- Restart the dev server
+
+### Styles Not Loading
+
+If styles aren't working:
+- Ensure you imported Fumadocs CSS in `global.css`
+- Check that Tailwind CSS 4 is properly configured
+- Verify the `className="flex flex-col min-h-screen"` is on the `body` tag
+
+### Components Not Rendering
+
+If MDX components don't work:
+- Verify `mdx-components.tsx` exists in the root
+- Check that you're passing `getMDXComponents()` to the `MDX` component
+- Import any custom components explicitly

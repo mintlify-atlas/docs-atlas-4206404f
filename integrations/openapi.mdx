@@ -1,0 +1,384 @@
+---
+title: OpenAPI
+description: Generate API documentation from OpenAPI specifications
+---
+
+Generate beautiful, interactive API documentation from your OpenAPI schemas. Fumadocs OpenAPI supports OpenAPI 3.0 and 3.1 specifications with interactive playgrounds, code examples, and type-safe components.
+
+## Installation
+
+```package-install
+fumadocs-openapi shiki
+```
+
+## Quick Start
+
+### 1. Configure Styles
+
+Add the OpenAPI preset to your CSS:
+
+```css title="app/global.css"
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+@import 'fumadocs-openapi/css/preset.css';
+```
+
+### 2. Create OpenAPI Instance
+
+Create a server-side OpenAPI instance with your schema:
+
+```ts title="lib/openapi.ts"
+import { createOpenAPI } from 'fumadocs-openapi/server';
+
+export const openapi = createOpenAPI({
+  // OpenAPI schema file path, URL, or function returning schemas
+  input: ['./openapi.json'],
+});
+```
+
+You can provide multiple schemas or use a function:
+
+```ts title="lib/openapi.ts"
+import { createOpenAPI } from 'fumadocs-openapi/server';
+
+export const openapi = createOpenAPI({
+  input: () => ({
+    'petstore': './petstore.yaml',
+    'github': 'https://api.github.com/openapi.json',
+  }),
+});
+```
+
+### 3. Create API Page Component
+
+```tsx title="components/api-page.tsx"
+import { openapi } from '@/lib/openapi';
+import { createAPIPage } from 'fumadocs-openapi/ui';
+import client from './api-page.client';
+
+export const APIPage = createAPIPage(openapi, {
+  client,
+});
+```
+
+```tsx title="components/api-page.client.tsx"
+'use client';
+import { defineClientConfig } from 'fumadocs-openapi/ui/client';
+
+export default defineClientConfig({
+  // Optional client configuration
+});
+```
+
+## Generating Documentation
+
+### Option 1: Generate MDX Files
+
+Generate static MDX files from your OpenAPI schema:
+
+```ts title="scripts/generate-docs.ts"
+import { generateFiles } from 'fumadocs-openapi';
+import { openapi } from '@/lib/openapi';
+
+void generateFiles({
+  input: openapi,
+  output: './content/docs',
+  per: 'operation', // 'operation' | 'tag' | 'file'
+  groupBy: 'tag', // Group files by tag
+});
+```
+
+Run the script:
+
+```bash
+bun scripts/generate-docs.ts
+```
+
+Add the `APIPage` component to your MDX components:
+
+```tsx title="mdx-components.tsx"
+import defaultComponents from 'fumadocs-ui/mdx';
+import { APIPage } from '@/components/api-page';
+import type { MDXComponents } from 'mdx/types';
+
+export function getMDXComponents(components?: MDXComponents): MDXComponents {
+  return {
+    ...defaultComponents,
+    APIPage,
+    ...components,
+  };
+}
+```
+
+### Option 2: Virtual Files
+
+Generate pages dynamically without creating files:
+
+```ts title="lib/source.ts"
+import { loader, multiple } from 'fumadocs-core/source';
+import { openapiPlugin, openapiSource } from 'fumadocs-openapi/server';
+import { docs } from 'fumadocs-mdx:collections/server';
+import { openapi } from '@/lib/openapi';
+
+export const source = loader(
+  multiple({
+    docs: docs.toFumadocsSource(),
+    openapi: await openapiSource(openapi, {
+      baseDir: 'openapi',
+    }),
+  }),
+  {
+    baseUrl: '/docs',
+    plugins: [openapiPlugin()],
+  },
+);
+```
+
+Handle OpenAPI pages in your route:
+
+```tsx title="app/docs/[[...slug]]/page.tsx"
+import { APIPage } from '@/components/api-page';
+import { source } from '@/lib/source';
+
+export default async function Page({ params }: { params: { slug?: string[] } }) {
+  const page = source.getPage(params.slug);
+  
+  if (page.data.type === 'openapi') {
+    return (
+      <DocsPage full>
+        <h1>{page.data.title}</h1>
+        <APIPage {...page.data.getAPIPageProps()} />
+      </DocsPage>
+    );
+  }
+  
+  // Regular page rendering...
+}
+```
+
+## Generation Options
+
+### File Organization
+
+Control how pages are generated:
+
+```ts
+import { generateFiles } from 'fumadocs-openapi';
+
+void generateFiles({
+  input: openapi,
+  output: './content/docs',
+  
+  // Generate one page per operation (default)
+  per: 'operation',
+  
+  // Group operations by tag into folders
+  groupBy: 'tag',
+  
+  // Custom file naming
+  name: (output, document) => {
+    if (output.type === 'operation') {
+      return `api/${output.item.path}`;
+    }
+    return 'webhook';
+  },
+});
+```
+
+| `per` Option | Description | File Path |
+| --- | --- | --- |
+| `operation` | One page per endpoint | `{operationId}.mdx` |
+| `tag` | Group by OpenAPI tag | `{tag_name}.mdx` |
+| `file` | One page per schema file | `{file_name}.mdx` |
+| `custom` | Custom function | Define your own |
+
+| `groupBy` Option | Output |
+| --- | --- |
+| `none` (default) | `{operationId}.mdx` |
+| `tag` | `{tag}/{operationId}.mdx` |
+| `route` | `{endpoint_path}/{method}.mdx` |
+
+### Index Pages
+
+Generate index pages with cards:
+
+```ts
+import { generateFiles } from 'fumadocs-openapi';
+
+void generateFiles({
+  input: openapi,
+  output: './content/docs',
+  index: {
+    url: {
+      baseUrl: '/docs',
+      contentDir: './content/docs',
+    },
+    items: [
+      {
+        path: 'api/index.mdx',
+        title: 'API Reference',
+        description: 'Complete API documentation',
+        only: ['petstore.yaml'], // Optional: filter schemas
+      },
+    ],
+  },
+});
+```
+
+### Frontmatter Customization
+
+```ts
+import { generateFiles } from 'fumadocs-openapi';
+
+void generateFiles({
+  input: openapi,
+  output: './content/docs',
+  frontmatter: (title, description) => ({
+    title,
+    description,
+    icon: 'api',
+    tags: ['api', 'reference'],
+  }),
+});
+```
+
+## Features
+
+### Interactive API Playground
+
+Every endpoint includes an interactive playground where users can:
+- Test API endpoints directly from documentation
+- Modify request parameters and body
+- View real-time responses
+- Try different authentication methods
+
+### Code Generation
+
+Automatic code examples in multiple languages:
+- cURL
+- JavaScript/TypeScript
+- Python
+- Go
+- Java
+- C#
+
+```ts title="components/api-page.client.tsx"
+'use client';
+import { defineClientConfig } from 'fumadocs-openapi/ui/client';
+import { allGenerators } from 'fumadocs-openapi/requests/generators/all';
+
+export default defineClientConfig({
+  generators: allGenerators,
+});
+```
+
+### Type-Safe Schemas
+
+Automatic TypeScript types from JSON schemas with:
+- Request parameters
+- Request body types
+- Response types
+- Enum values
+
+### Response Samples
+
+Display example responses with syntax highlighting:
+
+```ts title="lib/openapi.ts"
+import { createOpenAPI } from 'fumadocs-openapi/server';
+import { bundleShikiConfig } from 'fumadocs-core/highlight/config';
+
+export const openapi = createOpenAPI({
+  input: ['./openapi.json'],
+});
+
+export const shikiConfig = bundleShikiConfig({
+  themes: {
+    light: 'github-light',
+    dark: 'github-dark',
+  },
+});
+```
+
+## Server API
+
+### createOpenAPI
+
+Create an OpenAPI server instance:
+
+```ts
+import { createOpenAPI } from 'fumadocs-openapi/server';
+
+const openapi = createOpenAPI({
+  input: ['./schema.json'],
+  disableCache: false,
+  proxyUrl: '/api/proxy',
+});
+```
+
+### Methods
+
+```ts
+// Get all schemas
+const schemas = await openapi.getSchemas();
+
+// Get specific schema
+const schema = await openapi.getSchema('petstore.yaml');
+
+// Create CORS proxy for playground
+const proxy = openapi.createProxy();
+```
+
+## Advanced Configuration
+
+### Custom Transformations
+
+```ts
+import { generateFiles } from 'fumadocs-openapi';
+
+void generateFiles({
+  input: openapi,
+  output: './content/docs',
+  beforeWrite: function(files) {
+    // Access generated pages
+    console.log(this.generated);
+    
+    // Modify files before writing
+    files.forEach(file => {
+      file.content = file.content.replace(/old/g, 'new');
+    });
+  },
+});
+```
+
+### Imports
+
+Add custom imports to generated files:
+
+```ts
+import { generateFiles } from 'fumadocs-openapi';
+
+void generateFiles({
+  input: openapi,
+  output: './content/docs',
+  imports: [
+    {
+      names: ['API_BASE_URL', 'API_VERSION'],
+      from: '@/constants',
+    },
+  ],
+});
+```
+
+## Best Practices
+
+1. **Use operation IDs**: Define unique `operationId` for each endpoint in your OpenAPI spec
+2. **Add descriptions**: Include detailed descriptions for endpoints, parameters, and responses
+3. **Enable caching**: Use the default caching to improve build times
+4. **Group logically**: Use tags to organize endpoints into logical groups
+5. **Add examples**: Include request/response examples in your OpenAPI schema
+
+## Demo
+
+View a live demo of Fumadocs OpenAPI at [fumadocs.dev/docs/openapi](https://fumadocs.dev/docs/openapi).

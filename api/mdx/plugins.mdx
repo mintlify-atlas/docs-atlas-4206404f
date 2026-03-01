@@ -1,0 +1,497 @@
+---
+title: Plugin API
+description: Extend Fumadocs MDX with plugins for custom functionality
+---
+
+The plugin system allows you to extend Fumadocs MDX with custom transformations, file generation, and dev server features.
+
+## Plugin Interface
+
+```ts
+interface Plugin {
+  name?: string;
+  config?: (this: PluginContext, config: LoadedConfig) => Awaitable<LoadedConfig | void>;
+  emit?: (this: PluginContext) => Awaitable<EmitEntry[]>;
+  configureServer?: (this: PluginContext, server: ServerContext) => Awaitable<void>;
+  meta?: {
+    transform?: (this: CompilationContext<MetaCollectionItem>, data: unknown) => Awaitable<unknown | void>;
+  };
+  doc?: {
+    frontmatter?: (this: CompilationContext<DocCollectionItem>, data: Record<string, unknown>) => Awaitable<Record<string, unknown> | void>;
+    vfile?: (this: CompilationContext<DocCollectionItem>, file: VFile) => Awaitable<VFile | void>;
+  };
+}
+```
+
+<ParamField path="name" type="string">
+  Plugin identifier for debugging and filtering
+</ParamField>
+
+<ParamField path="config" type="(config: LoadedConfig) => LoadedConfig | void">
+  Called when configuration is loaded. Return modified config or void
+</ParamField>
+
+<ParamField path="emit" type="() => Promise<EmitEntry[]>">
+  Generate files (types, schemas, index files). Return array of file entries
+</ParamField>
+
+<ParamField path="configureServer" type="(server: ServerContext) => Promise<void>">
+  Configure the development server and file watchers
+</ParamField>
+
+<ParamField path="meta.transform" type="(data: unknown) => unknown | void">
+  Transform metadata from JSON/YAML files
+</ParamField>
+
+<ParamField path="doc.frontmatter" type="(data: Record<string, unknown>) => Record<string, unknown> | void">
+  Transform MDX frontmatter before compilation
+</ParamField>
+
+<ParamField path="doc.vfile" type="(file: VFile) => VFile | void">
+  Transform the VFile during MDX compilation
+</ParamField>
+
+## Built-in Plugins
+
+### indexFile
+
+Generates index files for accessing collections.
+
+```ts
+import indexFile from 'fumadocs-mdx/plugins/index-file';
+import { defineConfig } from 'fumadocs-mdx/config';
+
+export default defineConfig({
+  plugins: [
+    indexFile({
+      target: 'default',
+      addJsExtension: false,
+      browser: true,
+      dynamic: true
+    })
+  ]
+});
+```
+
+<ParamField path="target" type="'default' | 'vite'" default="'default'">
+  - `default`: Generate static imports
+  - `vite`: Use `import.meta.glob` for better HMR
+</ParamField>
+
+<ParamField path="addJsExtension" type="boolean" default="false">
+  Add `.js` extensions to imports for ESM compatibility
+</ParamField>
+
+<ParamField path="browser" type="boolean" default="true">
+  Generate browser entry point (`browser.ts`)
+</ParamField>
+
+<ParamField path="dynamic" type="boolean" default="true">
+  Generate dynamic compilation entry point (`dynamic.ts`)
+</ParamField>
+
+#### Generated Files
+
+```ts
+// .source/server.ts
+import { docs } from '.source/server';
+
+for (const page of docs.getPages()) {
+  console.log(page.url, page.data.title);
+}
+```
+
+```ts
+// .source/browser.ts
+import collections from '.source/browser';
+
+const page = await collections.docs.load('introduction');
+```
+
+```ts
+// .source/dynamic.ts
+import { docs } from '.source/dynamic';
+
+// Compiles MDX on-demand
+const page = await docs.load('introduction');
+```
+
+### jsonSchema
+
+Generates JSON schemas for collection schemas.
+
+```ts
+import jsonSchema from 'fumadocs-mdx/plugins/json-schema';
+import { defineConfig } from 'fumadocs-mdx/config';
+
+export default defineConfig({
+  plugins: [
+    jsonSchema({
+      insert: true
+    })
+  ]
+});
+```
+
+<ParamField path="insert" type="boolean" default="false">
+  Automatically insert `$schema` field when creating new JSON files
+</ParamField>
+
+Generates `.source/json-schema/{collection}.json` files for IDE autocomplete:
+
+```json
+{
+  "$schema": "../../.source/json-schema/docs.meta.json",
+  "title": "API Reference"
+}
+```
+
+### lastModified
+
+Injects last modified timestamps from version control.
+
+```ts
+import lastModified from 'fumadocs-mdx/plugins/last-modified';
+import { defineConfig } from 'fumadocs-mdx/config';
+
+export default defineConfig({
+  plugins: [
+    lastModified({
+      versionControl: 'git',
+      filter: (collection) => collection !== 'blog'
+    })
+  ]
+});
+```
+
+<ParamField path="versionControl" type="'git' | ((filePath: string) => Promise<Date | null>)" default="'git'">
+  Version control system or custom function to get timestamps
+</ParamField>
+
+<ParamField path="filter" type="(collection: string) => boolean">
+  Filter which collections to include
+</ParamField>
+
+Access the timestamp:
+
+```tsx
+import { lastModified } from './page.mdx';
+
+export default function Page() {
+  return <time>{lastModified?.toLocaleDateString()}</time>;
+}
+```
+
+## Remark Plugins
+
+### remarkInclude
+
+Include external files and code snippets.
+
+```ts
+import { defineConfig, remarkInclude } from 'fumadocs-mdx/config';
+
+export default defineConfig({
+  mdxOptions: {
+    remarkPlugins: [remarkInclude]
+  }
+});
+```
+
+#### Syntax
+
+Include entire files:
+
+```mdx
+<include>./example.tsx</include>
+```
+
+Include specific sections:
+
+```mdx
+<include>./example.tsx#region-name</include>
+```
+
+Customize code block:
+
+```mdx
+<include lang="typescript" meta="title=\"Example\"">
+./example.js
+</include>
+```
+
+#### Region Syntax
+
+Supports multiple region markers:
+
+```ts
+// #region feature
+function example() {
+  return 'This will be included';
+}
+// #endregion feature
+```
+
+```html
+<!-- #region template -->
+<div>This content will be included</div>
+<!-- #endregion template -->
+```
+
+<ParamField path="lang" type="string">
+  Override language for syntax highlighting
+</ParamField>
+
+<ParamField path="meta" type="string">
+  Add metadata to code block
+</ParamField>
+
+<ParamField path="cwd" type="string">
+  Custom working directory for resolving paths
+</ParamField>
+
+### remarkPostprocess
+
+Post-processes MDX content for extraction and export.
+
+```ts
+import { remarkPostprocess } from 'fumadocs-mdx/loaders/mdx/remark-postprocess';
+
+// Applied automatically via postprocess config
+```
+
+Configured through collection settings:
+
+```ts
+export const docs = defineCollections({
+  type: 'doc',
+  dir: 'content',
+  postprocess: {
+    includeProcessedMarkdown: true,
+    extractLinkReferences: true,
+    includeMDAST: { removePosition: true }
+  }
+});
+```
+
+## Creating Custom Plugins
+
+### Basic Plugin
+
+```ts
+import type { Plugin } from 'fumadocs-mdx/core';
+
+export function myPlugin(): Plugin {
+  return {
+    name: 'my-plugin',
+    doc: {
+      frontmatter(data) {
+        // Add default values
+        return {
+          ...data,
+          category: data.category ?? 'general'
+        };
+      }
+    }
+  };
+}
+```
+
+### File Generation Plugin
+
+```ts
+import type { Plugin } from 'fumadocs-mdx/core';
+
+export function manifestPlugin(): Plugin {
+  return {
+    name: 'manifest',
+    async emit() {
+      const collections = this.core.getCollections();
+      const manifest = {
+        collections: collections.map(c => c.name),
+        timestamp: new Date().toISOString()
+      };
+
+      return [
+        {
+          path: 'manifest.json',
+          content: JSON.stringify(manifest, null, 2)
+        }
+      ];
+    }
+  };
+}
+```
+
+### Dev Server Plugin
+
+```ts
+import type { Plugin } from 'fumadocs-mdx/core';
+
+export function watchPlugin(): Plugin {
+  return {
+    name: 'watch',
+    configureServer(server) {
+      server.watcher?.on('change', (file) => {
+        console.log('File changed:', file);
+      });
+    }
+  };
+}
+```
+
+### VFile Transform Plugin
+
+```ts
+import type { Plugin } from 'fumadocs-mdx/core';
+import { visit } from 'unist-util-visit';
+
+export function imageOptimizer(): Plugin {
+  return {
+    name: 'image-optimizer',
+    doc: {
+      async vfile(file) {
+        visit(file.data.mdast, 'image', (node) => {
+          // Transform image URLs
+          node.url = `/optimized/${node.url}`;
+        });
+        return file;
+      }
+    }
+  };
+}
+```
+
+## Plugin Context
+
+Plugins receive context with access to the core system.
+
+```ts
+interface PluginContext {
+  core: Core;
+}
+```
+
+<ParamField path="core" type="Core">
+  Core instance with configuration and collection access
+</ParamField>
+
+### Core Methods
+
+```ts
+interface Core {
+  getOptions(): CoreOptions;
+  getConfig(): LoadedConfig;
+  getCollections(): CollectionItem[];
+  getCollection(name: string): CollectionItem | undefined;
+  getWorkspaces(): Map<string, Core>;
+  transformMeta(options: TransformOptions, data: unknown): Promise<unknown>;
+  transformFrontmatter(options: TransformOptions, data: Record<string, unknown>): Promise<Record<string, unknown>>;
+  transformVFile(options: TransformOptions, file: VFile): Promise<VFile>;
+}
+```
+
+## Compilation Context
+
+Document and metadata hooks receive compilation context:
+
+```ts
+interface CompilationContext<Collection> {
+  core: Core;
+  collection: Collection;
+  filePath: string;
+  source: string;
+}
+```
+
+<ParamField path="core" type="Core">
+  Core instance
+</ParamField>
+
+<ParamField path="collection" type="DocCollectionItem | MetaCollectionItem">
+  The collection being processed
+</ParamField>
+
+<ParamField path="filePath" type="string">
+  Absolute path to the file
+</ParamField>
+
+<ParamField path="source" type="string">
+  Raw file content
+</ParamField>
+
+## Server Context
+
+```ts
+interface ServerContext {
+  watcher?: FSWatcher;
+}
+```
+
+<ParamField path="watcher" type="FSWatcher">
+  Chokidar file watcher instance. Filter events before responding
+</ParamField>
+
+### Example: Custom Watcher
+
+```ts
+export function customWatcher(): Plugin {
+  return {
+    name: 'custom-watcher',
+    configureServer(server) {
+      server.watcher?.on('all', (event, file) => {
+        if (file.endsWith('.custom')) {
+          console.log('Custom file changed:', file);
+        }
+      });
+    }
+  };
+}
+```
+
+## Emit Entry
+
+```ts
+interface EmitEntry {
+  path: string;
+  content: string;
+}
+```
+
+<ParamField path="path" type="string" required>
+  File path relative to output directory
+</ParamField>
+
+<ParamField path="content" type="string" required>
+  File contents to write
+</ParamField>
+
+## Type Extensions
+
+Extend generated types through the index-file plugin hook:
+
+```ts
+import type { Plugin } from 'fumadocs-mdx/core';
+
+export function customTypes(): Plugin {
+  return {
+    name: 'custom-types',
+    'index-file': {
+      generateTypeConfig() {
+        return `{
+          DocData: {
+            docs: {
+              customField: string;
+            }
+          }
+        }`;
+      },
+      serverOptions(options) {
+        options.doc ??= {};
+        options.doc.passthroughs ??= [];
+        options.doc.passthroughs.push('customField');
+      }
+    }
+  };
+}
+```

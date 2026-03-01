@@ -1,0 +1,448 @@
+---
+title: Layouts
+description: Documentation layouts for different use cases
+---
+
+## Available Layouts
+
+Fumadocs provides three distinct layout options, each optimized for different documentation styles:
+
+<CardGroup cols={3}>
+  <Card title="Docs Layout" href="#docs-layout">
+    Traditional sidebar-based layout with full navigation
+  </Card>
+  <Card title="Flux Layout" href="#flux-layout">
+    Mobile-first floating navigation panel
+  </Card>
+  <Card title="Notebook Layout" href="#notebook-layout">
+    Hybrid layout with top navbar and sidebar
+  </Card>
+</CardGroup>
+
+## Docs Layout
+
+The classic documentation layout with a collapsible sidebar, ideal for technical documentation with deep navigation hierarchies.
+
+### Import
+
+```tsx
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+```
+
+### Basic Usage
+
+```tsx title="app/docs/layout.tsx"
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+import { pageTree } from '@/lib/source';
+
+export default function Layout({ children }) {
+  return (
+    <DocsLayout
+      tree={pageTree}
+      nav={{
+        title: 'My Docs',
+        url: '/docs',
+      }}
+    >
+      {children}
+    </DocsLayout>
+  );
+}
+```
+
+### Props Reference
+
+<TypeTable
+  type={{
+    tree: {
+      type: 'PageTree.Root',
+      required: true,
+      description: 'Page tree structure from fumadocs-core',
+    },
+    nav: {
+      type: 'NavOptions',
+      description: 'Navigation configuration for header/title',
+      typeDescription: '{ title?: ReactNode; url?: string; enabled?: boolean; transparentMode?: boolean }',
+    },
+    sidebar: {
+      type: 'SidebarOptions',
+      description: 'Sidebar configuration and customization',
+    },
+    tabMode: {
+      type: '"top" | "auto"',
+      default: '"auto"',
+      description: 'Where to display sidebar tabs. "top" shows tabs above content, "auto" shows in sidebar',
+    },
+    searchToggle: {
+      type: 'SearchToggleOptions',
+      description: 'Configure search toggle button visibility and components',
+    },
+    themeSwitch: {
+      type: 'ThemeSwitchOptions',
+      description: 'Theme switcher configuration',
+    },
+    i18n: {
+      type: 'boolean',
+      default: 'false',
+      description: 'Enable language switcher',
+    },
+    containerProps: {
+      type: 'HTMLAttributes<HTMLDivElement>',
+      description: 'Props for the container div element',
+    },
+  }}
+/>
+
+### Sidebar Configuration
+
+```tsx
+<DocsLayout
+  tree={pageTree}
+  sidebar={{
+    enabled: true,
+    defaultOpenLevel: 1,
+    collapsible: true,
+    banner: <div>Custom banner content</div>,
+    footer: <div>Custom footer content</div>,
+    tabs: {
+      transform: (option, node) => {
+        // Custom tab transformation
+        return option;
+      },
+    },
+  }}
+/>
+```
+
+#### Sidebar Props
+
+<TypeTable
+  type={{
+    enabled: {
+      type: 'boolean',
+      default: 'true',
+      description: 'Show or hide the sidebar',
+    },
+    defaultOpenLevel: {
+      type: 'number',
+      description: 'Default depth level for expanded folders',
+    },
+    collapsible: {
+      type: 'boolean',
+      default: 'true',
+      description: 'Allow sidebar to be collapsed on desktop',
+    },
+    banner: {
+      type: 'ReactNode',
+      description: 'Content to display at the top of sidebar',
+    },
+    footer: {
+      type: 'ReactNode',
+      description: 'Content to display at the bottom of sidebar',
+    },
+    tabs: {
+      type: 'SidebarTabWithProps[] | GetSidebarTabsOptions | false',
+      description: 'Sidebar tab configuration for multi-section docs',
+    },
+    component: {
+      type: 'ReactNode',
+      description: 'Replace entire sidebar with custom component',
+    },
+    components: {
+      type: 'Partial<SidebarPageTreeComponents>',
+      description: 'Override individual sidebar tree components',
+    },
+  }}
+/>
+
+### Tab Modes
+
+#### Auto Mode (Default)
+
+Tabs appear in the sidebar as a dropdown:
+
+```tsx
+<DocsLayout tree={pageTree} tabMode="auto" />
+```
+
+#### Top Mode
+
+Tabs appear as a horizontal bar above the content:
+
+```tsx
+<DocsLayout tree={pageTree} tabMode="top" />
+```
+
+## Flux Layout
+
+A modern, mobile-first layout with a floating navigation panel at the bottom of the screen.
+
+### Import
+
+```tsx
+import { DocsLayout } from 'fumadocs-ui/layouts/flux';
+```
+
+### Basic Usage
+
+```tsx title="app/docs/layout.tsx"
+import { DocsLayout } from 'fumadocs-ui/layouts/flux';
+import { pageTree } from '@/lib/source';
+
+export default function Layout({ children }) {
+  return (
+    <DocsLayout
+      tree={pageTree}
+      nav={{
+        title: 'My Docs',
+      }}
+    >
+      {children}
+    </DocsLayout>
+  );
+}
+```
+
+### Props Reference
+
+<TypeTable
+  type={{
+    tree: {
+      type: 'PageTree.Root',
+      required: true,
+      description: 'Page tree structure',
+    },
+    nav: {
+      type: 'NavOptions',
+      description: 'Navigation title and configuration',
+    },
+    sidebar: {
+      type: 'SidebarOptions',
+      description: 'Sidebar drawer configuration',
+    },
+    containerProps: {
+      type: 'HTMLAttributes<HTMLDivElement>',
+      description: 'Props for the container div',
+    },
+    renderNavigationPanel: {
+      type: '(props: NavigationPanelProps) => ReactNode',
+      description: 'Custom navigation panel renderer',
+    },
+  }}
+/>
+
+### Custom Navigation Panel
+
+```tsx
+<DocsLayout
+  tree={pageTree}
+  renderNavigationPanel={(props) => (
+    <NavigationPanel {...props} className="custom-styles" />
+  )}
+/>
+```
+
+## Notebook Layout
+
+A hybrid layout combining a top navbar with an optional sidebar, similar to Notion or Jupyter notebooks.
+
+### Import
+
+```tsx
+import { DocsLayout } from 'fumadocs-ui/layouts/notebook';
+```
+
+### Basic Usage
+
+```tsx title="app/docs/layout.tsx"
+import { DocsLayout } from 'fumadocs-ui/layouts/notebook';
+import { pageTree } from '@/lib/source';
+
+export default function Layout({ children }) {
+  return (
+    <DocsLayout
+      tree={pageTree}
+      nav={{
+        title: 'My Docs',
+        mode: 'auto',
+      }}
+      tabMode="navbar"
+    >
+      {children}
+    </DocsLayout>
+  );
+}
+```
+
+### Props Reference
+
+<TypeTable
+  type={{
+    tree: {
+      type: 'PageTree.Root',
+      required: true,
+      description: 'Page tree structure',
+    },
+    nav: {
+      type: 'NavOptions & { mode?: "top" | "auto" }',
+      description: 'Navigation configuration with display mode',
+    },
+    sidebar: {
+      type: 'SidebarOptions',
+      description: 'Sidebar configuration',
+    },
+    tabMode: {
+      type: '"sidebar" | "navbar"',
+      default: '"sidebar"',
+      description: 'Where to display tabs - in sidebar or top navbar',
+    },
+    containerProps: {
+      type: 'HTMLAttributes<HTMLDivElement>',
+      description: 'Props for the container div',
+    },
+  }}
+/>
+
+### Navigation Modes
+
+#### Auto Mode
+
+Shows title in sidebar, collapses to navbar on mobile:
+
+```tsx
+<DocsLayout
+  tree={pageTree}
+  nav={{ mode: 'auto' }}
+/>
+```
+
+#### Top Mode
+
+Always shows navigation in the top navbar:
+
+```tsx
+<DocsLayout
+  tree={pageTree}
+  nav={{ mode: 'top' }}
+/>
+```
+
+## Common Configuration
+
+### Search Integration
+
+All layouts support search configuration:
+
+```tsx
+<DocsLayout
+  tree={pageTree}
+  searchToggle={{
+    enabled: true,
+    components: {
+      lg: <CustomLargeSearch />,
+      sm: <CustomSmallSearch />,
+    },
+  }}
+/>
+```
+
+### Theme Switcher
+
+```tsx
+<DocsLayout
+  tree={pageTree}
+  themeSwitch={{
+    enabled: true,
+    mode: 'light-dark-system',
+    component: <CustomThemeToggle />,
+  }}
+/>
+```
+
+### Links and Navigation Items
+
+```tsx
+import { HomeIcon, GithubIcon } from 'lucide-react';
+
+<DocsLayout
+  tree={pageTree}
+  links={[
+    {
+      type: 'menu',
+      text: 'Documentation',
+      url: '/docs',
+      active: true,
+    },
+    {
+      type: 'menu',
+      text: 'Blog',
+      url: '/blog',
+    },
+    {
+      type: 'icon',
+      label: 'GitHub',
+      icon: <GithubIcon />,
+      url: 'https://github.com',
+      external: true,
+    },
+  ]}
+/>
+```
+
+## Choosing a Layout
+
+<Callout type="info" title="Layout Comparison">
+  - **Docs Layout**: Best for traditional documentation with deep navigation
+  - **Flux Layout**: Ideal for mobile-first docs with minimal chrome
+  - **Notebook Layout**: Perfect for guides and tutorials with top navigation
+</Callout>
+
+## Examples
+
+### Multi-language Documentation
+
+```tsx
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+
+export default function Layout({ children }) {
+  return (
+    <DocsLayout
+      tree={pageTree}
+      i18n={true}
+      sidebar={{
+        tabs: {
+          transform: (option, node) => {
+            return {
+              ...option,
+              description: `Version ${node.name}`,
+            };
+          },
+        },
+      }}
+    >
+      {children}
+    </DocsLayout>
+  );
+}
+```
+
+### Custom Sidebar Content
+
+```tsx
+<DocsLayout
+  tree={pageTree}
+  sidebar={{
+    banner: (
+      <div className="p-4 bg-gradient-to-r from-blue-500 to-purple-500">
+        <h3 className="font-bold text-white">New Release!</h3>
+        <p className="text-sm text-white/80">Check out v2.0</p>
+      </div>
+    ),
+    footer: (
+      <div className="p-4 text-sm text-muted-foreground">
+        Built with Fumadocs
+      </div>
+    ),
+  }}
+/>
+```

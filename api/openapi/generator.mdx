@@ -1,0 +1,330 @@
+---
+title: Generator API
+description: Generate MDX documentation files from OpenAPI schemas
+---
+
+## generateFiles
+
+Generate MDX documentation files from OpenAPI schemas and write them to the filesystem.
+
+```ts
+import { generateFiles } from 'fumadocs-openapi';
+
+await generateFiles({
+  input: server,
+  output: './content/docs',
+  per: 'operation',
+  groupBy: 'tag',
+});
+```
+
+<ParamField name="input" type="OpenAPIServer" required>
+  The OpenAPI server instance created with `createOpenAPI()`.
+</ParamField>
+
+<ParamField name="output" type="string" required>
+  Output directory path where MDX files will be written.
+</ParamField>
+
+<ParamField name="per" type="'operation' | 'tag' | 'file' | 'custom'" default="operation">
+  Generation strategy:
+  - `operation`: One page per API endpoint (default)
+  - `tag`: One page per OpenAPI tag
+  - `file`: One page per schema file
+  - `custom`: Use custom `PagesBuilderConfig`
+</ParamField>
+
+<ParamField name="groupBy" type="'tag' | 'route' | 'none' | function">
+  How to organize output files into folders (only works with `per: 'operation'`):
+  - `tag`: Group by OpenAPI tags (`{tag}/{file}`)
+  - `route`: Group by endpoint path (`{endpoint}/{method}`)
+  - `none`: Flat structure (default)
+  - Custom function: `(entry) => string` to return folder path
+</ParamField>
+
+<ParamField name="name" type="NameFn | NameFnOptions">
+  Customize output file names. Can be:
+  - A function: `(output, document) => string`
+  - Options object with `algorithm: 'v1' | 'v2'`
+</ParamField>
+
+<ParamField name="slugify" type="(name: string) => string">
+  Custom function to convert names into file names. Default escapes whitespace and converts to lowercase.
+</ParamField>
+
+<ParamField name="index" type="IndexConfig">
+  Generate index files with cards linking to generated pages.
+  
+  ```ts
+  index: {
+    items: [
+      {
+        path: 'index',
+        title: 'API Reference',
+        description: 'Complete API documentation',
+      }
+    ],
+    url: {
+      baseUrl: '/docs',
+      contentDir: './content/docs',
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField name="beforeWrite" type="(files: OutputFile[]) => void | Promise<void>">
+  Callback to modify output files before writing to filesystem.
+  
+  Context provides:
+  - `generated`: Record of generated files by schema ID
+  - `generatedEntries`: Record of output entries by schema ID
+  - `documents`: Processed OpenAPI documents
+</ParamField>
+
+## generateFilesOnly
+
+Generate MDX files without writing to filesystem. Returns array of `OutputFile` objects.
+
+```ts
+import { generateFilesOnly } from 'fumadocs-openapi';
+
+const files = await generateFilesOnly({
+  input: server,
+  per: 'operation',
+});
+
+// files: OutputFile[]
+// { path: string, content: string }[]
+```
+
+Accepts same options as `generateFiles()` except `output`.
+
+## fromSchema
+
+Generate output entries from a processed OpenAPI document.
+
+```ts
+import { fromSchema } from 'fumadocs-openapi/utils/pages/builder';
+import { createAutoPreset } from 'fumadocs-openapi/utils/pages/preset-auto';
+
+const entries = fromSchema(
+  'schema-id',
+  processedDocument,
+  createAutoPreset({ per: 'operation' })
+);
+```
+
+<ParamField name="schemaId" type="string" required>
+  Unique identifier for the schema.
+</ParamField>
+
+<ParamField name="processed" type="ProcessedDocument" required>
+  Processed OpenAPI document from `processDocument()`.
+</ParamField>
+
+<ParamField name="config" type="PagesBuilderConfig" required>
+  Configuration for page generation. Use `createAutoPreset()` for automatic configuration.
+</ParamField>
+
+**Returns:** `OutputEntry[]` - Array of generated page entries
+
+## createAutoPreset
+
+Create automatic page generation configuration.
+
+```ts
+import { createAutoPreset } from 'fumadocs-openapi/utils/pages/preset-auto';
+
+const preset = createAutoPreset({
+  per: 'operation',
+  groupBy: 'tag',
+  slugify: (name) => name.toLowerCase(),
+});
+```
+
+Accepts `SchemaToPagesOptions` configuration.
+
+## IndexConfig
+
+Configuration for generating index pages with cards.
+
+```ts
+interface IndexConfig {
+  items: IndexItem[] | ((ctx: BeforeWriteContext) => IndexItem[]);
+  url:
+    | ((filePath: string) => string)
+    | {
+        baseUrl: string;
+        contentDir: string;
+      };
+}
+```
+
+### IndexItem
+
+```ts
+interface IndexItem {
+  path: string;
+  title?: string;
+  description?: string;
+  only?: string[];
+}
+```
+
+<ParamField name="path" type="string" required>
+  Output path for the index file.
+</ParamField>
+
+<ParamField name="title" type="string">
+  Index page title.
+</ParamField>
+
+<ParamField name="description" type="string">
+  Index page description.
+</ParamField>
+
+<ParamField name="only" type="string[]">
+  Filter which pages to include:
+  - Schema IDs from `input` to include all pages
+  - Specific file paths to include individual pages
+</ParamField>
+
+## OutputEntry Types
+
+Generated output entries with metadata:
+
+### OperationOutput
+
+```ts
+interface OperationOutput {
+  type: 'operation';
+  path: string;
+  schemaId: string;
+  item: OperationItem;
+  info: {
+    title: string;
+    description?: string;
+  };
+}
+```
+
+### WebhookOutput
+
+```ts
+interface WebhookOutput {
+  type: 'webhook';
+  path: string;
+  schemaId: string;
+  item: WebhookItem;
+  info: {
+    title: string;
+    description?: string;
+  };
+}
+```
+
+### TagOutput
+
+```ts
+interface TagOutput {
+  type: 'tag';
+  path: string;
+  schemaId: string;
+  tag: string;
+  rawTag: TagObject;
+  operations: OperationItem[];
+  webhooks: WebhookItem[];
+  info: {
+    title: string;
+    description?: string;
+  };
+}
+```
+
+### OutputGroup
+
+```ts
+interface OutputGroup {
+  type: 'group';
+  path: string;
+  schemaId: string;
+  operations: OperationItem[];
+  webhooks: WebhookItem[];
+  info: {
+    title: string;
+    description?: string;
+  };
+}
+```
+
+## Example: Custom Generation
+
+```ts
+import { generateFiles } from 'fumadocs-openapi';
+import { createOpenAPI } from 'fumadocs-openapi/server';
+
+const server = createOpenAPI({
+  input: ['./openapi.yaml'],
+});
+
+await generateFiles({
+  input: server,
+  output: './content/docs/api',
+  per: 'operation',
+  groupBy: 'tag',
+  name: {
+    algorithm: 'v2',
+  },
+  index: {
+    items: [
+      {
+        path: 'index',
+        title: 'API Reference',
+        description: 'REST API endpoints',
+      },
+    ],
+    url: {
+      baseUrl: '/docs',
+      contentDir: './content/docs',
+    },
+  },
+  beforeWrite(files) {
+    console.log(`Generated ${files.length} files`);
+  },
+});
+```
+
+## Example: Custom File Naming
+
+```ts
+await generateFiles({
+  input: server,
+  output: './content/docs',
+  per: 'operation',
+  name(output, document) {
+    if (output.type === 'operation') {
+      const operation = document.paths![output.item.path]![output.item.method]!;
+      return operation.operationId || `${output.item.method}-${output.item.path}`;
+    }
+    return 'default';
+  },
+});
+```
+
+## Example: Group by Custom Function
+
+```ts
+await generateFiles({
+  input: server,
+  output: './content/docs',
+  per: 'operation',
+  groupBy: (entry) => {
+    // Group by API version from path
+    if (entry.type === 'operation') {
+      const match = entry.item.path.match(/^\/v(\d+)/);
+      return match ? `v${match[1]}` : 'general';
+    }
+    return 'general';
+  },
+});
+```

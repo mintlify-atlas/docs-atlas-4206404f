@@ -1,0 +1,660 @@
+---
+title: Components
+description: All available UI components for documentation content
+---
+
+## Overview
+
+Fumadocs UI provides a rich set of components for creating beautiful documentation content. All components are designed for MDX and support TypeScript.
+
+## Content Components
+
+### Card
+
+Display highlighted content in a card layout.
+
+```tsx
+import { Card, Cards } from 'fumadocs-ui/components/card';
+```
+
+#### Example
+
+<Cards>
+  <Card
+    title="Getting Started"
+    description="Learn the basics of Fumadocs"
+    href="/docs/getting-started"
+  />
+  <Card
+    title="API Reference"
+    description="Complete API documentation"
+    href="/docs/api"
+  />
+</Cards>
+
+```mdx
+<Cards>
+  <Card
+    title="Getting Started"
+    description="Learn the basics of Fumadocs"
+    href="/docs/getting-started"
+  />
+  <Card
+    title="API Reference"
+    description="Complete API documentation"
+    href="/docs/api"
+  />
+</Cards>
+```
+
+#### Props
+
+<TypeTable
+  type={{
+    title: {
+      type: 'ReactNode',
+      required: true,
+      description: 'Card title',
+    },
+    description: {
+      type: 'ReactNode',
+      description: 'Card description text',
+    },
+    icon: {
+      type: 'ReactNode',
+      description: 'Icon to display at the top of the card',
+    },
+    href: {
+      type: 'string',
+      description: 'Link URL - makes the card clickable',
+    },
+    external: {
+      type: 'boolean',
+      description: 'Open link in new tab',
+    },
+  }}
+/>
+
+### Callout
+
+Highlight important information with different severity levels.
+
+```tsx
+import { Callout } from 'fumadocs-ui/components/callout';
+```
+
+#### Example
+
+<Callout type="info" title="Information">
+  This is an informational callout with useful details.
+</Callout>
+
+<Callout type="warning" title="Warning">
+  Be careful when using this feature in production.
+</Callout>
+
+<Callout type="error" title="Error">
+  This operation cannot be undone.
+</Callout>
+
+```mdx
+<Callout type="info" title="Information">
+  This is an informational callout.
+</Callout>
+
+<Callout type="warning" title="Warning">
+  Be careful when using this feature.
+</Callout>
+```
+
+#### Props
+
+<TypeTable
+  type={{
+    type: {
+      type: '"info" | "warn" | "warning" | "error" | "success" | "idea"',
+      default: '"info"',
+      description: 'Callout type determining color and icon',
+    },
+    title: {
+      type: 'ReactNode',
+      description: 'Callout title',
+    },
+    icon: {
+      type: 'ReactNode',
+      description: 'Custom icon to override default',
+    },
+  }}
+/>
+
+### Accordion
+
+Collapsible sections for organizing content.
+
+```tsx
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
+```
+
+#### Example
+
+```mdx
+<Accordions type="single">
+  <Accordion title="What is Fumadocs?" id="what-is-fumadocs">
+    Fumadocs is a documentation framework built for Next.js.
+  </Accordion>
+  <Accordion title="How do I get started?" id="getting-started">
+    Install fumadocs-ui and follow the quick start guide.
+  </Accordion>
+</Accordions>
+```
+
+#### Props
+
+**Accordions Container:**
+
+<TypeTable
+  type={{
+    type: {
+      type: '"single" | "multiple"',
+      default: '"single"',
+      description: 'Allow single or multiple items to be open',
+    },
+    defaultValue: {
+      type: 'string | string[]',
+      description: 'Default open accordion value(s)',
+    },
+  }}
+/>
+
+**Accordion Item:**
+
+<TypeTable
+  type={{
+    title: {
+      type: 'string | ReactNode',
+      required: true,
+      description: 'Accordion header text',
+    },
+    id: {
+      type: 'string',
+      description: 'Unique ID for deep linking',
+    },
+    value: {
+      type: 'string',
+      description: 'Value for controlled state, defaults to title',
+    },
+  }}
+/>
+
+### Tabs
+
+Tabbed content sections.
+
+```tsx
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+```
+
+#### Example
+
+<Tabs items={['npm', 'pnpm', 'yarn']}>
+  <Tab value="npm">
+    ```bash
+    npm install fumadocs-ui
+    ```
+  </Tab>
+  <Tab value="pnpm">
+    ```bash
+    pnpm add fumadocs-ui
+    ```
+  </Tab>
+  <Tab value="yarn">
+    ```bash
+    yarn add fumadocs-ui
+    ```
+  </Tab>
+</Tabs>
+
+#### Props
+
+**Tabs Container:**
+
+<TypeTable
+  type={{
+    items: {
+      type: 'string[]',
+      description: 'Simple mode: array of tab labels',
+    },
+    defaultIndex: {
+      type: 'number',
+      default: '0',
+      description: 'Default selected tab index (when using items)',
+    },
+    defaultValue: {
+      type: 'string',
+      description: 'Default value for controlled tabs',
+    },
+    label: {
+      type: 'ReactNode',
+      description: 'Additional label in tabs list',
+    },
+  }}
+/>
+
+**Tab:**
+
+<TypeTable
+  type={{
+    value: {
+      type: 'string',
+      description: 'Tab value, auto-detected from index if unspecified',
+    },
+  }}
+/>
+
+### CodeBlock
+
+Syntax-highlighted code blocks with copy functionality.
+
+```tsx
+import { CodeBlock, Pre } from 'fumadocs-ui/components/codeblock';
+```
+
+#### Example
+
+```tsx
+<CodeBlock title="example.tsx">
+  <Pre>
+    <code>
+      {`export default function Component() {
+  return <div>Hello World</div>;
+}`}
+    </code>
+  </Pre>
+</CodeBlock>
+```
+
+#### Props
+
+<TypeTable
+  type={{
+    title: {
+      type: 'string',
+      description: 'Code block title/filename',
+    },
+    icon: {
+      type: 'ReactNode | string',
+      description: 'Icon next to title (ReactNode or HTML string)',
+    },
+    allowCopy: {
+      type: 'boolean',
+      default: 'true',
+      description: 'Show copy button',
+    },
+    keepBackground: {
+      type: 'boolean',
+      default: 'false',
+      description: 'Keep original Shiki background colors',
+    },
+    'data-line-numbers': {
+      type: 'boolean',
+      description: 'Show line numbers',
+    },
+    'data-line-numbers-start': {
+      type: 'number',
+      default: '1',
+      description: 'Starting line number',
+    },
+  }}
+/>
+
+### Steps
+
+Numbered steps for tutorials and guides.
+
+```tsx
+import { Steps, Step } from 'fumadocs-ui/components/steps';
+```
+
+#### Example
+
+```mdx
+<Steps>
+  <Step>
+    ### Install Dependencies
+    
+    Run `npm install fumadocs-ui`
+  </Step>
+  
+  <Step>
+    ### Configure Layout
+    
+    Create your docs layout file
+  </Step>
+  
+  <Step>
+    ### Start Building
+    
+    Add your first documentation page
+  </Step>
+</Steps>
+```
+
+### Files
+
+Display file tree structures.
+
+```tsx
+import { Files, File, Folder } from 'fumadocs-ui/components/files';
+```
+
+#### Example
+
+```mdx
+<Files>
+  <Folder name="app" defaultOpen>
+    <Folder name="docs">
+      <File name="layout.tsx" />
+      <File name="page.tsx" />
+    </Folder>
+    <File name="layout.tsx" />
+  </Folder>
+  <File name="package.json" />
+</Files>
+```
+
+#### Props
+
+**File:**
+
+<TypeTable
+  type={{
+    name: {
+      type: 'string',
+      required: true,
+      description: 'File name',
+    },
+    icon: {
+      type: 'ReactNode',
+      description: 'Custom file icon',
+    },
+  }}
+/>
+
+**Folder:**
+
+<TypeTable
+  type={{
+    name: {
+      type: 'string',
+      required: true,
+      description: 'Folder name',
+    },
+    defaultOpen: {
+      type: 'boolean',
+      default: 'false',
+      description: 'Open folder by default',
+    },
+    disabled: {
+      type: 'boolean',
+      description: 'Disable folder toggle',
+    },
+  }}
+/>
+
+### Banner
+
+Display announcements at the top of pages.
+
+```tsx
+import { Banner } from 'fumadocs-ui/components/banner';
+```
+
+#### Example
+
+```tsx
+<Banner id="new-release" variant="rainbow">
+  🎉 Version 2.0 is now available!
+</Banner>
+```
+
+#### Props
+
+<TypeTable
+  type={{
+    id: {
+      type: 'string',
+      description: 'Unique ID for dismissible banners (persisted in localStorage)',
+    },
+    variant: {
+      type: '"rainbow" | "normal"',
+      default: '"normal"',
+      description: 'Banner style variant',
+    },
+    height: {
+      type: 'string',
+      default: '"3rem"',
+      description: 'Banner height',
+    },
+    changeLayout: {
+      type: 'boolean',
+      default: 'true',
+      description: 'Adjust layout spacing for banner',
+    },
+    rainbowColors: {
+      type: 'string[]',
+      description: 'Custom colors for rainbow variant',
+    },
+  }}
+/>
+
+### TypeTable
+
+Document component props and API interfaces.
+
+```tsx
+import { TypeTable } from 'fumadocs-ui/components/type-table';
+```
+
+#### Example
+
+```mdx
+<TypeTable
+  type={{
+    name: {
+      type: 'string',
+      required: true,
+      description: 'Component name',
+    },
+    enabled: {
+      type: 'boolean',
+      default: 'true',
+      description: 'Enable the feature',
+    },
+  }}
+/>
+```
+
+#### Type Definition
+
+<TypeTable
+  type={{
+    name: {
+      type: 'string',
+      required: true,
+      description: 'Property name',
+    },
+    type: {
+      type: 'ReactNode',
+      required: true,
+      description: 'Type signature (short)',
+    },
+    typeDescription: {
+      type: 'ReactNode',
+      description: 'Full type signature',
+    },
+    typeDescriptionLink: {
+      type: 'string',
+      description: 'Link to type definition',
+    },
+    description: {
+      type: 'ReactNode',
+      description: 'Property description',
+    },
+    default: {
+      type: 'ReactNode',
+      description: 'Default value',
+    },
+    required: {
+      type: 'boolean',
+      description: 'Whether the property is required',
+    },
+    deprecated: {
+      type: 'boolean',
+      description: 'Mark property as deprecated',
+    },
+  }}
+/>
+
+### ImageZoom
+
+Zoomable images with medium-zoom integration.
+
+```tsx
+import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
+import 'fumadocs-ui/image-zoom.css';
+```
+
+#### Example
+
+```mdx
+<ImageZoom
+  src="/screenshot.png"
+  alt="Application screenshot"
+  width={800}
+  height={600}
+/>
+```
+
+#### Props
+
+<TypeTable
+  type={{
+    src: {
+      type: 'string | StaticImageData',
+      required: true,
+      description: 'Image source',
+    },
+    alt: {
+      type: 'string',
+      required: true,
+      description: 'Alt text for accessibility',
+    },
+    zoomInProps: {
+      type: 'ComponentProps<"img">',
+      description: 'Props for zoomed image',
+    },
+    rmiz: {
+      type: 'UncontrolledProps',
+      description: 'Props for react-medium-image-zoom',
+    },
+  }}
+/>
+
+## Page Components
+
+### DocsPage
+
+Main page wrapper with TOC and navigation.
+
+```tsx
+import { DocsPage, DocsBody, DocsTitle, DocsDescription } from 'fumadocs-ui/layouts/docs/page';
+```
+
+#### Example
+
+```tsx
+<DocsPage toc={page.toc}>
+  <DocsTitle>{page.title}</DocsTitle>
+  <DocsDescription>{page.description}</DocsDescription>
+  <DocsBody>{page.body}</DocsBody>
+</DocsPage>
+```
+
+#### Props
+
+<TypeTable
+  type={{
+    toc: {
+      type: 'TOCItemType[]',
+      description: 'Table of contents items',
+    },
+    full: {
+      type: 'boolean',
+      default: 'false',
+      description: 'Extend page to fill all available space',
+    },
+    tableOfContent: {
+      type: 'TableOfContentOptions',
+      description: 'Configure desktop TOC',
+    },
+    tableOfContentPopover: {
+      type: 'TableOfContentPopoverOptions',
+      description: 'Configure mobile TOC popover',
+    },
+    breadcrumb: {
+      type: 'BreadcrumbOptions',
+      description: 'Breadcrumb configuration',
+    },
+    footer: {
+      type: 'FooterOptions',
+      description: 'Page footer with prev/next navigation',
+    },
+  }}
+/>
+
+## Component Composition
+
+### Nested Code Blocks
+
+Combine tabs with code blocks for framework-specific examples:
+
+<Tabs items={['React', 'Vue']}>
+  <Tab value="React">
+    ```tsx title="App.tsx"
+    export default function App() {
+      return <div>React App</div>
+    }
+    ```
+  </Tab>
+  <Tab value="Vue">
+    ```vue title="App.vue"
+    <template>
+      <div>Vue App</div>
+    </template>
+    ```
+  </Tab>
+</Tabs>
+
+### Cards with Icons
+
+```mdx
+import { BookOpen, Code, Palette } from 'lucide-react';
+
+<Cards>
+  <Card
+    title="Documentation"
+    icon={<BookOpen />}
+    href="/docs"
+  />
+  <Card
+    title="API Reference"
+    icon={<Code />}
+    href="/api"
+  />
+  <Card
+    title="Theming"
+    icon={<Palette />}
+    href="/theming"
+  />
+</Cards>
+```

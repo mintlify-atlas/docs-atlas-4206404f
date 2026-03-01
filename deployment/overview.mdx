@@ -1,0 +1,253 @@
+---
+title: Deployment Overview
+description: Deploy your Fumadocs documentation site to production
+icon: Rocket
+---
+
+## Introduction
+
+Fumadocs is built on top of modern React frameworks, giving you flexible deployment options ranging from server-side rendering to fully static sites. This guide covers the essential concepts and platform-specific instructions for deploying your documentation.
+
+## Deployment Models
+
+Fumadocs supports two primary deployment approaches:
+
+### Server-Side Rendering (SSR)
+
+The default deployment model for Fumadocs applications. Your documentation runs on a Node.js server, enabling:
+
+- Dynamic content generation
+- Server-side search indexing
+- API routes for advanced features
+- On-demand revalidation
+
+Best for:
+- Large documentation sites with frequent updates
+- Sites requiring server-side logic
+- Teams using Vercel or similar platforms
+
+### Static Site Generation (SSG)
+
+Export your documentation as static HTML/CSS/JS files for hosting on CDNs:
+
+- No server required
+- Maximum performance
+- Simple hosting on any static host
+- Client-side search
+
+Best for:
+- Smaller documentation sites
+- Hosting on Cloudflare Pages, Netlify, GitHub Pages
+- Maximum cost optimization
+
+See [Static Export](/deployment/static-export) for configuration details.
+
+## Framework-Specific Guides
+
+Your deployment approach depends on your React framework:
+
+<Cards>
+  <Card
+    title="Next.js"
+    href="https://nextjs.org/docs/app/getting-started/deploying"
+    icon="NextJS"
+  >
+    Deploy with Vercel, Docker, or static export
+  </Card>
+  <Card
+    title="React Router"
+    href="https://reactrouter.com/start/framework/deploying"
+    icon="ReactRouter"
+  >
+    SSR or SPA mode deployment options
+  </Card>
+  <Card
+    title="Tanstack Start"
+    href="https://tanstack.com/start/latest/docs/framework/react/guide/hosting"
+    icon="TanstackQuery"
+  >
+    Multiple hosting providers supported
+  </Card>
+  <Card
+    title="Waku"
+    href="https://waku.gg/#deployment"
+    icon="Waku"
+  >
+    Static or SSR deployment
+  </Card>
+</Cards>
+
+## Platform-Specific Considerations
+
+### Next.js + Cloudflare
+
+<Callout type="warn">
+  Fumadocs does not work on Cloudflare's Edge runtime.
+</Callout>
+
+Use [OpenNext for Cloudflare](https://opennext.js.org/cloudflare) to deploy Next.js applications with Fumadocs to Cloudflare Pages or Workers.
+
+See [Cloudflare Deployment](/deployment/cloudflare) for detailed instructions.
+
+### Next.js + Docker
+
+When deploying with Docker and **Fumadocs MDX** configured, you must include configuration files in your Docker image:
+
+<Steps>
+
+### Update Dockerfile
+
+Add `source.config.ts` and `next.config.*` to the COPY command:
+
+```dockerfile title="Dockerfile"
+FROM node:18-alpine AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+# Include configuration files for Fumadocs MDX
+COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* .npmrc* source.config.ts next.config.* ./
+RUN \
+  if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
+  elif [ -f package-lock.json ]; then npm ci; \
+  elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i --frozen-lockfile; \
+  else echo "Lockfile not found." && exit 1; \
+  fi
+```
+
+### Configure Output
+
+In `next.config.js`, enable standalone output:
+
+```js title="next.config.js"
+module.exports = {
+  output: 'standalone',
+};
+```
+
+### Build and Deploy
+
+Build your Docker image and deploy to your container platform:
+
+```bash
+docker build -t fumadocs-app .
+docker run -p 3000:3000 fumadocs-app
+```
+
+</Steps>
+
+See the [Next.js Dockerfile Example](https://github.com/vercel/next.js/blob/canary/examples/with-docker/Dockerfile) for a complete reference.
+
+## Search Configuration
+
+Search behavior varies by deployment model:
+
+### Server-Side Search (Default)
+
+The built-in Orama search runs on the server and works out of the box with SSR deployments.
+
+### Static Site Search
+
+For static exports, configure client-side search:
+
+<Steps>
+
+### Configure Search Server
+
+Follow the [Static Export guide](/docs/headless/search/orama#static-export) to pre-generate search indexes.
+
+### Update Search Client
+
+Use the static search client in your components:
+
+```tsx title="components/search.tsx"
+import { SearchDialog } from 'fumadocs-ui/components/dialog/search';
+
+export function Search() {
+  return (
+    <SearchDialog
+      search={{
+        type: 'static',
+        index: '/search-index.json',
+      }}
+    />
+  );
+}
+```
+
+</Steps>
+
+### Cloud Search Solutions
+
+Third-party search providers work with both deployment models:
+
+- [Algolia](/docs/headless/search/algolia)
+- [Orama Cloud](/docs/headless/search/orama-cloud)
+- [Trieve](/docs/headless/search/trieve)
+
+## Environment Variables
+
+Set environment variables based on your platform:
+
+### Vercel
+
+Configure in Project Settings → Environment Variables or use `vercel.json`.
+
+### Cloudflare Pages
+
+Set in Pages project settings or use `.dev.vars` for local development.
+
+### Docker
+
+Pass variables with `docker run -e` or use `.env` files with docker-compose.
+
+## Build Commands
+
+### Next.js
+
+```json title="package.json"
+{
+  "scripts": {
+    "build": "next build",
+    "start": "next start"
+  }
+}
+```
+
+### With Pre/Post Build Scripts
+
+```json title="package.json"
+{
+  "scripts": {
+    "build": "npm run build:pre && next build && npm run build:post",
+    "build:pre": "node ./scripts/pre-build.js",
+    "build:post": "node ./scripts/post-build.js",
+    "start": "next start"
+  }
+}
+```
+
+## Next Steps
+
+<Cards>
+  <Card
+    title="Static Export"
+    href="/deployment/static-export"
+    icon="FileOutput"
+  >
+    Configure static site generation for CDN hosting
+  </Card>
+  <Card
+    title="Vercel Deployment"
+    href="/deployment/vercel"
+    icon="Triangle"
+  >
+    Deploy to Vercel with optimal configuration
+  </Card>
+  <Card
+    title="Cloudflare Pages"
+    href="/deployment/cloudflare"
+    icon="CloudCog"
+  >
+    Deploy to Cloudflare Pages with OpenNext
+  </Card>
+</Cards>

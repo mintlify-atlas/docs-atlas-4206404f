@@ -1,0 +1,485 @@
+---
+title: Vercel Deployment
+description: Deploy your Fumadocs site to Vercel with optimal configuration
+icon: Triangle
+---
+
+## Overview
+
+Vercel provides the best deployment experience for Next.js-based Fumadocs applications, with zero-configuration deployment, automatic HTTPS, and global CDN distribution.
+
+## Quick Start
+
+<Steps>
+
+### Install Vercel CLI
+
+```bash
+npm i -g vercel
+```
+
+### Deploy
+
+```bash
+vercel
+```
+
+Follow the prompts to link your project and deploy.
+
+### Production Deployment
+
+```bash
+vercel --prod
+```
+
+</Steps>
+
+## Git Integration
+
+For automatic deployments on every push:
+
+<Steps>
+
+### Import Project
+
+1. Go to [Vercel Dashboard](https://vercel.com/dashboard)
+2. Click "Add New..." → "Project"
+3. Import your Git repository (GitHub, GitLab, Bitbucket)
+
+### Configure Build Settings
+
+Vercel auto-detects Next.js projects. Default settings:
+
+- **Framework Preset:** Next.js
+- **Build Command:** `next build`
+- **Output Directory:** `.next`
+- **Install Command:** Automatically detected
+
+### Deploy
+
+Click "Deploy" - Vercel will build and deploy your site.
+
+</Steps>
+
+## Configuration
+
+### vercel.json
+
+Optional configuration file for advanced settings:
+
+```json title="vercel.json"
+{
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "outputDirectory": ".next"
+}
+```
+
+### Environment Variables
+
+Set environment variables in the Vercel dashboard:
+
+1. Go to Project Settings → Environment Variables
+2. Add variables for:
+   - `NEXT_PUBLIC_*` - Client-side variables
+   - `DATABASE_URL` - Server-side secrets
+   - `API_KEY` - Private API keys
+
+Or use the Vercel CLI:
+
+```bash
+vercel env add NEXT_PUBLIC_SITE_URL
+```
+
+### Custom Domains
+
+Add custom domains in Project Settings → Domains:
+
+<Steps>
+
+### Add Domain
+
+Enter your domain name (e.g., `docs.example.com`)
+
+### Configure DNS
+
+Point your domain to Vercel:
+
+**Using A Record:**
+```
+A @ 76.76.21.21
+```
+
+**Using CNAME:**
+```
+CNAME docs cname.vercel-dns.com
+```
+
+### SSL Certificate
+
+Vercel automatically provisions SSL certificates.
+
+</Steps>
+
+## Build Optimization
+
+### Next.js Configuration
+
+Optimize your `next.config.js` for Vercel:
+
+```js title="next.config.mjs"
+import { createMDX } from 'fumadocs-mdx/next';
+
+const withMDX = createMDX();
+
+/** @type {import('next').NextConfig} */
+const config = {
+  reactStrictMode: true,
+  
+  // Optimize logging
+  logging: {
+    fetches: {
+      fullUrl: true,
+    },
+  },
+
+  // External packages for serverless
+  serverExternalPackages: [
+    'ts-morph',
+    'typescript',
+    'shiki',
+    '@takumi-rs/image-response',
+  ],
+
+  // Remote image patterns
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'avatars.githubusercontent.com',
+      },
+    ],
+  },
+};
+
+export default withMDX(config);
+```
+
+### Bundle Analysis
+
+Analyze your bundle size:
+
+```bash
+npm install --save-dev @next/bundle-analyzer
+```
+
+```js title="next.config.mjs"
+import createBundleAnalyzer from '@next/bundle-analyzer';
+import { createMDX } from 'fumadocs-mdx/next';
+
+const withAnalyzer = createBundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+});
+
+const withMDX = createMDX();
+
+const config = {
+  // ... your config
+};
+
+export default withAnalyzer(withMDX(config));
+```
+
+Run analysis:
+
+```bash
+ANALYZE=true npm run build
+```
+
+### Caching Strategy
+
+Optimize caching for static assets:
+
+```js title="next.config.mjs"
+const config = {
+  async headers() {
+    return [
+      {
+        source: '/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+    ];
+  },
+};
+```
+
+## Search Configuration
+
+### Built-in Search (Orama)
+
+The default Orama search works out of the box on Vercel:
+
+```ts title="app/api/search/route.ts"
+import { allDocs } from '@/.source';
+import { createSearchAPI } from 'fumadocs-core/search/server';
+
+const api = createSearchAPI('advanced', {
+  indexes: allDocs.map((page) => ({
+    id: page.url,
+    title: page.data.title,
+    description: page.data.description,
+    url: page.url,
+    structuredData: page.data.structuredData,
+  })),
+});
+
+export const GET = api.GET;
+export const POST = api.POST;
+```
+
+### Algolia Search
+
+For larger documentation sites, use Algolia:
+
+```bash
+npm install algoliasearch
+```
+
+Set environment variables:
+
+```bash
+vercel env add ALGOLIA_APP_ID
+vercel env add ALGOLIA_SEARCH_API_KEY
+vercel env add ALGOLIA_WRITE_API_KEY
+```
+
+See [Algolia Integration](/docs/headless/search/algolia) for setup.
+
+## Performance Optimization
+
+### Edge Functions
+
+Use Edge Runtime for faster response times:
+
+```ts title="app/api/search/route.ts"
+export const runtime = 'edge';
+
+export async function GET(request: Request) {
+  // ... your code
+}
+```
+
+<Callout type="warn">
+  Fumadocs core features work on Edge Runtime, but some dependencies (like TypeScript compilation for API docs) require Node.js runtime.
+</Callout>
+
+### Incremental Static Regeneration (ISR)
+
+Regenerate pages on-demand:
+
+```tsx title="app/docs/[...slug]/page.tsx"
+export const revalidate = 3600; // Revalidate every hour
+
+export default function Page({ params }: { params: { slug: string[] } }) {
+  // ... your page component
+}
+```
+
+### On-Demand Revalidation
+
+Revalidate specific pages via API:
+
+```ts title="app/api/revalidate/route.ts"
+import { revalidatePath } from 'next/cache';
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(request: NextRequest) {
+  const { path } = await request.json();
+  
+  if (!path) {
+    return NextResponse.json({ error: 'Missing path' }, { status: 400 });
+  }
+
+  try {
+    revalidatePath(path);
+    return NextResponse.json({ revalidated: true, path });
+  } catch (error) {
+    return NextResponse.json({ error: 'Error revalidating' }, { status: 500 });
+  }
+}
+```
+
+Trigger revalidation:
+
+```bash
+curl -X POST https://your-site.vercel.app/api/revalidate \
+  -H 'Content-Type: application/json' \
+  -d '{"path":"/docs/some-page"}'
+```
+
+## Monorepo Support
+
+For monorepo projects:
+
+```json title="vercel.json"
+{
+  "buildCommand": "cd ../.. && npm run build --filter=docs",
+  "installCommand": "npm install --prefix=../..",
+  "framework": "nextjs"
+}
+```
+
+Or configure in Vercel Dashboard:
+
+1. Project Settings → General
+2. Set **Root Directory** to your docs package (e.g., `apps/docs`)
+3. Enable **Include source files outside of the Root Directory**
+
+## Preview Deployments
+
+Vercel creates preview deployments for every push:
+
+- **Production:** Deploys from `main`/`master` branch
+- **Preview:** Deploys from feature branches and pull requests
+
+Configure branch deployments:
+
+1. Project Settings → Git
+2. Set **Production Branch**
+3. Enable/disable preview deployments
+
+## CI/CD Integration
+
+### GitHub Actions
+
+Deploy via GitHub Actions:
+
+```yaml title=".github/workflows/deploy.yml"
+name: Deploy to Vercel
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+      
+      - name: Pull Vercel Environment
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+      
+      - name: Build Project
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+      
+      - name: Deploy to Vercel
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+```
+
+Set `VERCEL_TOKEN` in GitHub repository secrets.
+
+## Troubleshooting
+
+### Build Timeouts
+
+If builds exceed time limits:
+
+1. Optimize dependencies (remove unused packages)
+2. Enable caching in `next.config.js`
+3. Consider splitting large docs into separate projects
+4. Use static export for faster builds
+
+### Memory Issues
+
+Increase Node.js memory:
+
+```json title="package.json"
+{
+  "scripts": {
+    "build": "NODE_OPTIONS='--max-old-space-size=4096' next build"
+  }
+}
+```
+
+### Function Size Limits
+
+If serverless functions exceed size limits:
+
+```js title="next.config.mjs"
+const config = {
+  serverExternalPackages: [
+    'large-package-name',
+  ],
+};
+```
+
+### Cold Starts
+
+Reduce cold start times:
+
+1. Minimize serverless function size
+2. Use Edge Runtime where possible
+3. Enable ISR for frequently accessed pages
+4. Consider static export for pure documentation
+
+## Analytics
+
+Enable Vercel Analytics:
+
+```bash
+npm install @vercel/analytics
+```
+
+```tsx title="app/layout.tsx"
+import { Analytics } from '@vercel/analytics/react';
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html>
+      <body>
+        {children}
+        <Analytics />
+      </body>
+    </html>
+  );
+}
+```
+
+View analytics in Vercel Dashboard → Analytics.
+
+## Next Steps
+
+<Cards>
+  <Card
+    title="Deployment Overview"
+    href="/deployment/overview"
+    icon="Rocket"
+  >
+    Learn about deployment concepts and options
+  </Card>
+  <Card
+    title="Static Export"
+    href="/deployment/static-export"
+    icon="FileOutput"
+  >
+    Deploy as a fully static site
+  </Card>
+  <Card
+    title="Vercel Documentation"
+    href="https://vercel.com/docs"
+    icon="ExternalLink"
+  >
+    Official Vercel platform documentation
+  </Card>
+</Cards>

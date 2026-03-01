@@ -1,0 +1,368 @@
+---
+title: Breadcrumb API
+description: Generate navigation breadcrumbs from page trees
+---
+
+## Overview
+
+The Breadcrumb API provides utilities for generating navigation breadcrumbs from page trees. Breadcrumbs help users understand their location within the documentation hierarchy.
+
+## Types
+
+### BreadcrumbItem
+
+Structure for a breadcrumb item.
+
+```typescript
+interface BreadcrumbItem {
+  name: ReactNode;
+  url?: string;
+}
+```
+
+<ParamField path="name" type="ReactNode">
+  Display name for the breadcrumb
+</ParamField>
+
+<ParamField path="url" type="string">
+  Optional URL for the breadcrumb link (some items may not be linkable)
+</ParamField>
+
+### BreadcrumbOptions
+
+Options for customizing breadcrumb generation.
+
+```typescript
+interface BreadcrumbOptions {
+  includeRoot?: boolean | { url: string };
+  includePage?: boolean;
+  includeSeparator?: boolean;
+}
+```
+
+<ParamField path="includeRoot" type="boolean | { url: string }" default="false">
+  Include the root node in breadcrumbs. If an object is provided, the root will use the specified URL.
+</ParamField>
+
+<ParamField path="includePage" type="boolean" default="false">
+  Include the current page itself in the breadcrumb items
+</ParamField>
+
+<ParamField path="includeSeparator" type="boolean" default="false">
+  Include separator nodes as breadcrumb items
+</ParamField>
+
+## Functions
+
+### getBreadcrumbItems()
+
+Generate breadcrumb items from a page URL.
+
+```typescript
+function getBreadcrumbItems(
+  url: string,
+  tree: PageTree.Root,
+  options?: BreadcrumbOptions
+): BreadcrumbItem[];
+```
+
+<ParamField path="url" type="string" required>
+  Current page URL
+</ParamField>
+
+<ParamField path="tree" type="PageTree.Root" required>
+  Page tree to search for the breadcrumb path
+</ParamField>
+
+<ParamField path="options" type="BreadcrumbOptions">
+  Configuration options for breadcrumb generation
+</ParamField>
+
+<ResponseField name="breadcrumbs" type="BreadcrumbItem[]">
+  Array of breadcrumb items from root to current page
+</ResponseField>
+
+**Example:**
+
+```typescript
+import { getBreadcrumbItems } from 'fumadocs-core/breadcrumb';
+
+const breadcrumbs = getBreadcrumbItems(
+  '/docs/api/reference',
+  pageTree,
+  {
+    includeRoot: { url: '/' },
+    includePage: true
+  }
+);
+
+// Result: [
+//   { name: 'Home', url: '/' },
+//   { name: 'Documentation', url: '/docs' },
+//   { name: 'API', url: '/docs/api' },
+//   { name: 'Reference', url: '/docs/api/reference' }
+// ]
+```
+
+### getBreadcrumbItemsFromPath()
+
+Generate breadcrumb items from a pre-computed node path.
+
+```typescript
+function getBreadcrumbItemsFromPath(
+  tree: PageTree.Root,
+  path: PageTree.Node[],
+  options: BreadcrumbOptions
+): BreadcrumbItem[];
+```
+
+<ParamField path="tree" type="PageTree.Root" required>
+  Page tree root
+</ParamField>
+
+<ParamField path="path" type="PageTree.Node[]" required>
+  Pre-computed path from root to target page (use `findPath()` to get this)
+</ParamField>
+
+<ParamField path="options" type="BreadcrumbOptions" required>
+  Configuration options for breadcrumb generation
+</ParamField>
+
+<ResponseField name="breadcrumbs" type="BreadcrumbItem[]">
+  Array of breadcrumb items
+</ResponseField>
+
+**Example:**
+
+```typescript
+import { getBreadcrumbItemsFromPath } from 'fumadocs-core/breadcrumb';
+import { findPath } from 'fumadocs-core/page-tree';
+
+const path = findPath(
+  tree.children,
+  (node) => node.type === 'page' && node.url === '/docs/api/reference'
+);
+
+if (path) {
+  const breadcrumbs = getBreadcrumbItemsFromPath(
+    tree,
+    path,
+    { includeRoot: true }
+  );
+}
+```
+
+### searchPath()
+
+Search for a page's path in the tree by URL.
+
+```typescript
+function searchPath(
+  nodes: PageTree.Node[],
+  url: string
+): PageTree.Node[] | null;
+```
+
+<ParamField path="nodes" type="PageTree.Node[]" required>
+  Array of page tree nodes to search
+</ParamField>
+
+<ParamField path="url" type="string" required>
+  URL to search for
+</ParamField>
+
+<ResponseField name="path" type="PageTree.Node[] | null">
+  Path from root to the page with the specified URL, or null if not found
+</ResponseField>
+
+**Example:**
+
+```typescript
+import { searchPath } from 'fumadocs-core/breadcrumb';
+
+const path = searchPath(tree.children, '/docs/api/reference');
+// Returns array of nodes from root to target page
+```
+
+## Hook
+
+### useBreadcrumb()
+
+React hook for generating breadcrumbs.
+
+```typescript
+function useBreadcrumb(
+  url: string,
+  tree: PageTree.Root,
+  options?: BreadcrumbOptions
+): BreadcrumbItem[];
+```
+
+<ParamField path="url" type="string" required>
+  Current page URL
+</ParamField>
+
+<ParamField path="tree" type="PageTree.Root" required>
+  Page tree to generate breadcrumbs from
+</ParamField>
+
+<ParamField path="options" type="BreadcrumbOptions">
+  Breadcrumb generation options
+</ParamField>
+
+<ResponseField name="breadcrumbs" type="BreadcrumbItem[]">
+  Memoized array of breadcrumb items
+</ResponseField>
+
+**Example:**
+
+```typescript
+import { useBreadcrumb } from 'fumadocs-core/breadcrumb';
+import { usePathname } from 'next/navigation';
+
+function Breadcrumb({ tree }) {
+  const pathname = usePathname();
+  const breadcrumbs = useBreadcrumb(pathname, tree, {
+    includeRoot: { url: '/' }
+  });
+
+  return (
+    <nav aria-label="Breadcrumb">
+      <ol className="flex items-center space-x-2">
+        {breadcrumbs.map((item, index) => (
+          <li key={index} className="flex items-center">
+            {index > 0 && <span className="mx-2">/</span>}
+            {item.url ? (
+              <a href={item.url} className="hover:underline">
+                {item.name}
+              </a>
+            ) : (
+              <span>{item.name}</span>
+            )}
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+```
+
+## Complete Example
+
+Here's a complete breadcrumb component implementation:
+
+```typescript
+import { useBreadcrumb, type BreadcrumbItem } from 'fumadocs-core/breadcrumb';
+import type * as PageTree from 'fumadocs-core/page-tree';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Fragment } from 'react';
+
+interface BreadcrumbProps {
+  tree: PageTree.Root;
+  homeUrl?: string;
+  separator?: React.ReactNode;
+}
+
+export function Breadcrumb({
+  tree,
+  homeUrl = '/',
+  separator = '/'
+}: BreadcrumbProps) {
+  const pathname = usePathname();
+  const items = useBreadcrumb(pathname, tree, {
+    includeRoot: { url: homeUrl },
+    includePage: false
+  });
+
+  if (items.length === 0) return null;
+
+  return (
+    <nav
+      aria-label="Breadcrumb"
+      className="flex items-center space-x-1 text-sm text-muted-foreground"
+    >
+      <ol className="flex items-center space-x-1">
+        {items.map((item, index) => (
+          <Fragment key={index}>
+            {index > 0 && (
+              <li aria-hidden="true" className="select-none">
+                {separator}
+              </li>
+            )}
+            <li>
+              {item.url ? (
+                <Link
+                  href={item.url}
+                  className="hover:text-foreground transition-colors"
+                >
+                  {item.name}
+                </Link>
+              ) : (
+                <span className="font-medium text-foreground">
+                  {item.name}
+                </span>
+              )}
+            </li>
+          </Fragment>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+```
+
+## Usage with Root Folders
+
+When your page tree has root folders (folders with `root: true`), breadcrumbs will reset at each root folder by default:
+
+```typescript
+const breadcrumbs = getBreadcrumbItems(
+  '/docs/advanced/api',
+  tree,
+  {
+    includeRoot: false // Root folders reset the breadcrumb path
+  }
+);
+// If 'advanced' is a root folder:
+// Result: [{ name: 'Advanced' }, { name: 'API' }]
+// Instead of: [{ name: 'Docs' }, { name: 'Advanced' }, { name: 'API' }]
+```
+
+To include root folders in the breadcrumb trail:
+
+```typescript
+const breadcrumbs = getBreadcrumbItems(
+  '/docs/advanced/api',
+  tree,
+  {
+    includeRoot: true
+  }
+);
+```
+
+## Structured Data
+
+You can use breadcrumbs for JSON-LD structured data:
+
+```typescript
+import { getBreadcrumbItems } from 'fumadocs-core/breadcrumb';
+
+function generateBreadcrumbSchema(url: string, tree: PageTree.Root) {
+  const items = getBreadcrumbItems(url, tree, {
+    includeRoot: { url: '/' },
+    includePage: true
+  });
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: items.map((item, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: typeof item.name === 'string' ? item.name : 'Page',
+      item: item.url ? `https://example.com${item.url}` : undefined
+    }))
+  };
+}
+```

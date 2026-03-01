@@ -1,0 +1,472 @@
+---
+title: What is Fumadocs?
+description: An in-depth look at Fumadocs architecture, philosophy, and when to use it
+icon: CircleQuestion
+---
+
+Fumadocs is more than just a static site generator—it's a complete **documentation framework** that combines the power of React, the flexibility of server-side rendering, and a composable architecture that puts you in control.
+
+## The Mental Model
+
+The **Fumadocs framework** consists of three main layers working together:
+
+```
+┌─────────────────────────────────────┐
+│        Fumadocs UI (Theme)          │
+│   Beautiful layouts & components    │
+├─────────────────────────────────────┤
+│      Fumadocs Core (Engine)         │
+│   Search, routing, page trees       │
+├─────────────────────────────────────┤
+│    Content Source (Adapter)         │
+│   MDX, CMS, or custom sources       │
+└─────────────────────────────────────┘
+```
+
+Each layer is independent and can be used separately or replaced:
+
+<Steps>
+
+<Step title="Fumadocs Core - The Headless Engine">
+  
+A framework-agnostic library (`fumadocs-core`) that handles:
+
+- **Page tree generation** - Automatic sidebar navigation from file structure
+- **Document search** - Full-text search with Orama, Algolia, or custom engines
+- **Content source adapters** - Unified API for different content backends
+- **MDX processing** - Syntax highlighting, Twoslash, and custom plugins
+- **Breadcrumbs & TOC** - Automatic navigation helpers
+- **Internationalization** - Built-in i18n routing and content negotiation
+
+Core is completely headless—bring your own UI or use Fumadocs UI.
+
+**Package**: `fumadocs-core`
+
+</Step>
+
+<Step title="Fumadocs UI - The Default Theme">
+  
+A beautiful, accessible component library (`fumadocs-ui`) providing:
+
+- **Multiple layouts** - Docs, Blog, Landing page layouts
+- **Interactive components** - Tabs, accordions, callouts, code blocks
+- **Mobile-responsive** - Optimized for all screen sizes
+- **Dark mode** - Smooth theme switching with persistence
+- **Customizable** - Full Tailwind CSS control
+
+UI is built with Radix UI primitives and styled with Tailwind CSS.
+
+**Package**: `fumadocs-ui`
+
+</Step>
+
+<Step title="Content Sources - The Adapter Layer">
+  
+Flexible adapters for different content backends:
+
+- **Fumadocs MDX** - Local MDX files with TypeScript validation
+- **Content Collections** - Astro-style content management
+- **Headless CMS** - Contentful, Sanity, Strapi, etc.
+- **Custom sources** - Implement the source API for any backend
+
+The official source is **Fumadocs MDX** with features like frontmatter schemas, auto-generated types, and hot reload.
+
+**Package**: `fumadocs-mdx`
+
+</Step>
+
+</Steps>
+
+## Core Philosophy
+
+### 1. A Framework You Can Break
+
+Fumadocs was created to be **less opinionated** and **more customizable** than traditional documentation frameworks.
+
+<Card title="Traditional Frameworks" icon="lock">
+  Configure everything in a config file. Want to change how pages render? Too bad—it's hidden behind abstractions. Need custom behavior? Fight against the framework or write plugins with limited APIs.
+</Card>
+
+<Card title="Fumadocs Approach" icon="unlock">
+  Write code, not config. Full control over rendering, routing, and data fetching. Need to customize something? You have direct access to the components and logic. It's just React.
+</Card>
+
+You can modify, extend, or replace any part of Fumadocs. This is a framework you can break—and that's a feature, not a bug.
+
+### 2. Code Over Configuration
+
+Instead of massive configuration files, Fumadocs uses **code as configuration**:
+
+```typescript title="lib/source.ts"
+import { loader } from 'fumadocs-core/source';
+import { docs } from 'fumadocs-mdx:collections/server';
+
+// This is code, not config
+export const source = loader({
+  baseUrl: '/docs',
+  source: docs.toFumadocsSource(),
+  plugins: [
+    lucideIconsPlugin(),
+    // Add any custom plugin here
+  ],
+});
+```
+
+You can see exactly what's happening, add custom logic, and integrate with the rest of your app seamlessly.
+
+### 3. Server-First Architecture
+
+Unlike traditional static site generators, Fumadocs embraces **React Server Components**:
+
+<CardGroup cols={2}>
+  <Card title="Static Sites" icon="file-text">
+    Generate everything at build time. Content is frozen until the next build. No dynamic data.
+  </Card>
+  
+  <Card title="Fumadocs" icon="server">
+    Render on the server with perfect client-server boundaries. Content can be dynamic, data can be fetched at request time, and you still get static exports.
+  </Card>
+</CardGroup>
+
+This means you can:
+- Fetch data from databases or APIs in your docs
+- Integrate with CMSs for real-time updates
+- Generate pages dynamically based on user data
+- Still export to static HTML for edge hosting
+
+### 4. Seamless Framework Integration
+
+Fumadocs is designed to **integrate with your existing React framework**, not replace it:
+
+**For Next.js developers:**
+- Use App Router conventions naturally
+- Static Site Generation works out of the box
+- Incremental Static Regeneration available
+- All Next.js features (middleware, API routes, etc.) work normally
+
+**For Vite developers:**
+- Support for Tanstack Start, Waku, React Router
+- File-based routing integration
+- Optimized builds with Vite's speed
+
+You're not learning a new framework—you're using the framework you already know with powerful documentation features added on top.
+
+### 5. Composable UI Components
+
+Inspired by **Shadcn UI**, Fumadocs UI follows a "copy-paste" approach:
+
+```bash
+npx fumadocs-cli add accordion
+```
+
+This copies the component source into your project. You **own the code** and can:
+- Modify styles however you want
+- Change behavior to match your needs  
+- Remove features you don't need
+- Add new functionality
+
+No wrestling with CSS overrides or fighting against component APIs.
+
+### 6. Minimal Yet Powerful
+
+Fumadocs focuses on making **basic features perfect** rather than trying to do everything:
+
+<CardGroup cols={2}>
+  <Card title="In Scope" icon="check">
+    - Document rendering & navigation
+    - Search & indexing
+    - Syntax highlighting
+    - Component library
+    - Internationalization
+    - Theme customization
+  </Card>
+  
+  <Card title="Bring Your Own" icon="plug">
+    - Analytics (Plausible, Umami, etc.)
+    - Authentication & user management
+    - Comments (Giscus, Utterances)
+    - CMS integration
+    - Custom features for your use case
+  </Card>
+</CardGroup>
+
+This keeps the codebase maintainable and focused while giving you the flexibility to add exactly what you need.
+
+## When to Use Fumadocs
+
+Fumadocs shines in scenarios where you need **flexibility and integration**:
+
+### Perfect For:
+
+<CardGroup cols={2}>
+  <Card title="Documentation Sites" icon="book">
+    API references, product docs, developer portals. Rich components, search, and beautiful presentation.
+  </Card>
+  
+  <Card title="Hybrid Applications" icon="layers">
+    Apps that need docs alongside other pages. Blog + docs + marketing site all in one project.
+  </Card>
+  
+  <Card title="Dynamic Content" icon="database">
+    Docs that pull from CMSs, databases, or APIs. Real-time updates without rebuilds.
+  </Card>
+  
+  <Card title="Custom Requirements" icon="wrench">
+    When you need full control. Authentication, custom UI, special workflows—build it your way.
+  </Card>
+</CardGroup>
+
+### Maybe Not For:
+
+<Warning>
+  If you need a **zero-config** solution and don't want to write any code, a simpler tool like Docusaurus or VitePress might be better. Fumadocs trades some initial simplicity for long-term flexibility.
+</Warning>
+
+<Warning>
+  If you're not using React or don't want to learn it, Fumadocs isn't the right choice. It's built on React from the ground up.
+</Warning>
+
+## Real-World Use Cases
+
+### 1. SaaS Product Documentation
+
+```typescript
+// Fetch user-specific examples from your database
+export default async function Page({ params }) {
+  const user = await getUser();
+  const examples = await db.examples.findMany({
+    where: { userId: user.id },
+  });
+  
+  return (
+    <DocsPage>
+      <YourDocs examples={examples} />
+    </DocsPage>
+  );
+}
+```
+
+Show personalized documentation based on the user's account, usage, or permissions.
+
+### 2. Multi-Product Documentation
+
+Use sidebar tabs to organize docs for multiple products:
+
+```typescript title="app/docs/layout.tsx"
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+
+const tabs = [
+  { title: 'Product A', url: '/docs/product-a' },
+  { title: 'Product B', url: '/docs/product-b' },
+  { title: 'API Reference', url: '/docs/api' },
+];
+
+export default function Layout({ children }) {
+  return (
+    <DocsLayout tree={source.getPageTree()} tabs={tabs}>
+      {children}
+    </DocsLayout>
+  );
+}
+```
+
+### 3. API Documentation with OpenAPI
+
+Automate API docs from OpenAPI specs:
+
+```typescript
+import { generateFiles } from 'fumadocs-openapi';
+
+await generateFiles({
+  input: './openapi.json',
+  output: './content/docs/api',
+});
+```
+
+Fumadocs OpenAPI generates beautiful, interactive API documentation from your spec.
+
+### 4. Blog + Documentation Hybrid
+
+```
+app/
+├── (marketing)/
+│   ├── page.tsx          # Landing page
+│   └── blog/             # Blog section
+├── docs/                 # Documentation
+└── dashboard/            # App dashboard
+```
+
+Everything lives in one Next.js project with shared components, layouts, and data fetching.
+
+## Technical Architecture
+
+### Page Tree Generation
+
+Fumadocs automatically builds a page tree from your file structure:
+
+```
+content/docs/
+├── index.mdx              → { title: "Home", url: "/docs" }
+├── getting-started.mdx    → { title: "Getting Started", url: "/docs/getting-started" }
+└── api/
+    ├── index.mdx          → { title: "API", url: "/docs/api" }
+    └── endpoints.mdx      → { title: "Endpoints", url: "/docs/api/endpoints" }
+```
+
+The page tree powers:
+- Sidebar navigation with nested folders
+- Breadcrumbs
+- Previous/next page links
+- Search indexing
+
+### Content Source API
+
+All content sources implement a unified interface:
+
+```typescript
+interface Source {
+  getPages(): Page[];
+  getPageTree(): PageTree;
+  getPage(slug: string[]): Page | undefined;
+}
+```
+
+This abstraction means you can swap content sources without changing your UI code.
+
+### Search Architecture
+
+Fumadocs provides search adapters for multiple engines:
+
+- **Orama** (built-in) - Client-side full-text search
+- **Algolia** - Hosted search with advanced features  
+- **Custom** - Implement your own search provider
+
+All use the same React components, so switching providers is trivial.
+
+## Performance Characteristics
+
+<CardGroup cols={2}>
+  <Card title="Build Time" icon="clock">
+    Fast incremental builds. Only changed pages are regenerated. Parallel processing for large sites.
+  </Card>
+  
+  <Card title="Runtime Performance" icon="zap">
+    Static by default. Zero JavaScript for content pages (optional). Code splitting and lazy loading.
+  </Card>
+  
+  <Card title="Bundle Size" icon="package">
+    Core: ~20KB gzipped. UI: ~40KB gzipped. Tree-shakeable—only import what you use.
+  </Card>
+  
+  <Card title="Search" icon="search">
+    Client-side search with Orama: ~5KB + index. Algolia: external host, minimal bundle impact.
+  </Card>
+</CardGroup>
+
+## Ecosystem & Extensions
+
+<Steps>
+
+<Step title="OpenAPI Integration">
+  Generate API documentation from OpenAPI/Swagger specs:
+  
+  ```bash
+  npm install fumadocs-openapi
+  ```
+</Step>
+
+<Step title="Twoslash Support">
+  Show TypeScript type information on hover in code blocks:
+  
+  ```typescript
+  const greeting = "Hello"; // hovering shows: const greeting: string
+  ```
+</Step>
+
+<Step title="Content Collections">
+  Astro-style content management with TypeScript:
+  
+  ```bash
+  npm install @fumadocs/content-collections
+  ```
+</Step>
+
+<Step title="Python Documentation">
+  Generate docs from Python docstrings:
+  
+  ```bash
+  npm install fumadocs-python
+  ```
+</Step>
+
+</Steps>
+
+## Comparisons with Other Frameworks
+
+<Accordion title="vs. Docusaurus">
+  **Docusaurus**: More batteries-included, but less flexible. Configuration-heavy. React, but you write little React code.
+  
+  **Fumadocs**: Code-first, highly customizable. You write React and have full control. Lighter weight.
+  
+  **Choose Fumadocs if**: You want flexibility and integration with existing React apps.
+</Accordion>
+
+<Accordion title="vs. VitePress">
+  **VitePress**: Vue-based, very simple, fast. Great for straightforward docs with minimal customization.
+  
+  **Fumadocs**: React-based, more powerful for complex use cases. Better integration with React ecosystems.
+  
+  **Choose Fumadocs if**: You're in the React ecosystem or need advanced features.
+</Accordion>
+
+<Accordion title="vs. Nextra">
+  **Nextra**: Next.js-specific, simpler setup. Good for quick docs.
+  
+  **Fumadocs**: Multi-framework support, more UI options, actively maintained with modern patterns.
+  
+  **Choose Fumadocs if**: You want cutting-edge features and long-term maintainability.
+</Accordion>
+
+<Accordion title="vs. Starlight (Astro)">
+  **Starlight**: Astro-based, component-agnostic (Vue, React, Svelte). Very fast.
+  
+  **Fumadocs**: React-only, but deeper React integration. Server components, RSC streaming.
+  
+  **Choose Fumadocs if**: You're building a React app and want unified architecture.
+</Accordion>
+
+## Community & Contributions
+
+Fumadocs is maintained by **Fuma Nama** and a growing community of contributors.
+
+<CardGroup cols={2}>
+  <Card title="Open Source" icon="github">
+    MIT licensed. Contributions welcome. Active development with regular releases.
+  </Card>
+  
+  <Card title="Community Support" icon="users">
+    GitHub Discussions for questions. Discord for real-time help. Active maintainer responses.
+  </Card>
+</CardGroup>
+
+<Info>
+  Interested in contributing? Check out the [Contributing Guide](https://github.com/fuma-nama/fumadocs/blob/main/.github/contributing.md) to get started.
+</Info>
+
+## Getting Started
+
+Ready to try Fumadocs?
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" href="/quick-start" icon="rocket">
+    Create a new project in minutes
+  </Card>
+  
+  <Card title="Manual Installation" href="/installation" icon="wrench">
+    Add to an existing project
+  </Card>
+</CardGroup>
+
+<Tip>
+  Start with the Quick Start guide to get a feel for how Fumadocs works. You can always migrate to manual installation later if you need more control.
+</Tip>

@@ -1,0 +1,248 @@
+---
+title: React Router
+description: Integrate Fumadocs with React Router v7
+---
+
+Fumadocs supports React Router v7 (formerly Remix) with the `fumadocs-ui/provider/react-router` package. It integrates with React Router's navigation system and data loading patterns.
+
+## Installation
+
+<Steps>
+
+### Install Dependencies
+
+```bash
+npm install fumadocs-ui fumadocs-core fumadocs-mdx
+```
+
+### Configure Vite
+
+Set up Vite with the Fumadocs MDX plugin:
+
+```ts title="vite.config.ts"
+import { reactRouter } from '@react-router/dev/vite';
+import tailwindcss from '@tailwindcss/vite';
+import { defineConfig } from 'vite';
+import tsconfigPaths from 'vite-tsconfig-paths';
+import mdx from 'fumadocs-mdx/vite';
+import * as MdxConfig from './source.config';
+
+export default defineConfig({
+  plugins: [
+    mdx(MdxConfig),
+    tailwindcss(),
+    reactRouter(),
+    tsconfigPaths({
+      projects: ['./tsconfig.json'],
+    }),
+  ],
+});
+```
+
+### Setup Root Provider
+
+Wrap your application with `RootProvider` in the root layout:
+
+```tsx title="app/root.tsx"
+import { Links, Meta, Outlet, Scripts, ScrollRestoration } from 'react-router';
+import { RootProvider } from 'fumadocs-ui/provider/react-router';
+import './app.css';
+
+export function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <Meta />
+        <Links />
+      </head>
+      <body className="flex flex-col min-h-screen">
+        <RootProvider>{children}</RootProvider>
+        <ScrollRestoration />
+        <Scripts />
+      </body>
+    </html>
+  );
+}
+
+export default function App() {
+  return <Outlet />;
+}
+```
+
+### Create Docs Route
+
+Create a route file for your documentation:
+
+```tsx title="app/routes/docs.tsx"
+import type { Route } from './+types/docs';
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+import { DocsBody, DocsDescription, DocsPage, DocsTitle } from 'fumadocs-ui/layouts/docs/page';
+import { source } from '@/lib/source';
+import defaultMdxComponents from 'fumadocs-ui/mdx';
+import browserCollections from 'fumadocs-mdx:collections/browser';
+import { baseOptions } from '@/lib/layout.shared';
+import { useFumadocsLoader } from 'fumadocs-core/source/client';
+
+export async function loader({ params }: Route.LoaderArgs) {
+  const slugs = params['*'].split('/').filter((v) => v.length > 0);
+  const page = source.getPage(slugs);
+  if (!page) throw new Response('Not found', { status: 404 });
+
+  return {
+    path: page.path,
+    url: page.url,
+    pageTree: await source.serializePageTree(source.getPageTree()),
+  };
+}
+
+const clientLoader = browserCollections.docs.createClientLoader({
+  component({ toc, frontmatter, default: Mdx }, { path, url }: { path: string; url: string }) {
+    return (
+      <DocsPage toc={toc}>
+        <title>{frontmatter.title}</title>
+        <meta name="description" content={frontmatter.description} />
+        <DocsTitle>{frontmatter.title}</DocsTitle>
+        <DocsDescription>{frontmatter.description}</DocsDescription>
+        <DocsBody>
+          <Mdx components={{ ...defaultMdxComponents }} />
+        </DocsBody>
+      </DocsPage>
+    );
+  },
+});
+
+export default function Page({ loaderData }: Route.ComponentProps) {
+  const { path, url, pageTree } = useFumadocsLoader(loaderData);
+
+  return (
+    <DocsLayout {...baseOptions()} tree={pageTree}>
+      {clientLoader.useContent(path, { path, url })}
+    </DocsLayout>
+  );
+}
+```
+
+### Configure Prerendering
+
+Optionally configure static prerendering:
+
+```ts title="react-router.config.ts"
+import type { Config } from '@react-router/dev/config';
+import { glob } from 'node:fs/promises';
+import { createGetUrl, getSlugs } from 'fumadocs-core/source';
+
+const getUrl = createGetUrl('/docs');
+
+export default {
+  ssr: true,
+  async prerender({ getStaticPaths }) {
+    const paths: string[] = [];
+
+    for await (const entry of glob('**/*.mdx', { cwd: 'content/docs' })) {
+      const slugs = getSlugs(entry);
+      paths.push(getUrl(slugs));
+    }
+
+    return paths;
+  },
+} satisfies Config;
+```
+
+</Steps>
+
+## Framework Provider
+
+The `ReactRouterProvider` integrates Fumadocs with React Router's navigation:
+
+```tsx
+import { ReactRouterProvider } from 'fumadocs-ui/provider/react-router';
+import { Link, useLocation, useNavigate, useParams, useRevalidator } from 'react-router';
+
+const framework = {
+  usePathname() {
+    return useLocation().pathname;
+  },
+  useParams() {
+    return useParams() as Record<string, string | string[]>;
+  },
+  useRouter() {
+    const navigate = useNavigate();
+    const revalidator = useRevalidator();
+
+    return {
+      push(url) {
+        navigate(url);
+      },
+      refresh() {
+        void revalidator.revalidate();
+      },
+    };
+  },
+  Link({ href, prefetch, ...props }) {
+    return (
+      <Link to={href!} prefetch={prefetch ? 'intent' : 'none'} {...props}>
+        {props.children}
+      </Link>
+    );
+  },
+};
+```
+
+The provider uses:
+- `useLocation()` for pathname tracking
+- `useNavigate()` for programmatic navigation
+- `useRevalidator()` for data revalidation
+- `useParams()` for route parameters
+- `Link` component with prefetch support
+
+## Data Loading
+
+React Router uses loaders for data fetching:
+
+```tsx
+export async function loader({ params }: Route.LoaderArgs) {
+  const slugs = params['*'].split('/').filter((v) => v.length > 0);
+  const page = source.getPage(slugs);
+  
+  if (!page) {
+    throw new Response('Not found', { status: 404 });
+  }
+
+  return {
+    path: page.path,
+    url: page.url,
+    pageTree: await source.serializePageTree(source.getPageTree()),
+  };
+}
+```
+
+## Client-Side Rendering
+
+Fumadocs provides client loaders for browser-side MDX rendering:
+
+```tsx
+const clientLoader = browserCollections.docs.createClientLoader({
+  component({ toc, frontmatter, default: Mdx }, props) {
+    return (
+      <DocsPage toc={toc}>
+        <DocsTitle>{frontmatter.title}</DocsTitle>
+        <DocsBody>
+          <Mdx components={defaultMdxComponents} />
+        </DocsBody>
+      </DocsPage>
+    );
+  },
+});
+```
+
+## Quick Start
+
+Use the CLI to create a new React Router project with Fumadocs:
+
+```bash
+npx create-fumadocs-app
+```
+
+Select "React Router" when prompted for the framework.

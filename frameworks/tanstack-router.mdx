@@ -1,0 +1,303 @@
+---
+title: TanStack Router
+description: Integrate Fumadocs with TanStack Router and TanStack Start
+---
+
+Fumadocs supports TanStack Router and TanStack Start with the `fumadocs-ui/provider/tanstack` package. It provides type-safe routing and navigation integration.
+
+## Installation
+
+<Steps>
+
+### Install Dependencies
+
+```bash
+npm install fumadocs-ui fumadocs-core fumadocs-mdx
+```
+
+### Setup Root Route
+
+Create a root route with the `RootProvider`:
+
+```tsx title="src/routes/__root.tsx"
+import { createRootRoute, HeadContent, Outlet, Scripts } from '@tanstack/react-router';
+import * as React from 'react';
+import appCss from '@/styles/app.css?url';
+import { RootProvider } from 'fumadocs-ui/provider/tanstack';
+
+export const Route = createRootRoute({
+  head: () => ({
+    meta: [
+      {
+        charSet: 'utf-8',
+      },
+      {
+        name: 'viewport',
+        content: 'width=device-width, initial-scale=1',
+      },
+      {
+        title: 'Fumadocs',
+      },
+    ],
+    links: [{ rel: 'stylesheet', href: appCss }],
+  }),
+  component: RootComponent,
+});
+
+function RootComponent() {
+  return (
+    <RootDocument>
+      <Outlet />
+    </RootDocument>
+  );
+}
+
+function RootDocument({ children }: { children: React.ReactNode }) {
+  return (
+    <html suppressHydrationWarning>
+      <head>
+        <HeadContent />
+      </head>
+      <body className="flex flex-col min-h-screen">
+        <RootProvider>{children}</RootProvider>
+        <Scripts />
+      </body>
+    </html>
+  );
+}
+```
+
+### Create Docs Route
+
+Create a catch-all route for documentation pages:
+
+```tsx title="src/routes/docs/$.tsx"
+import { createFileRoute, notFound } from '@tanstack/react-router';
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+import { createServerFn } from '@tanstack/react-start';
+import { source } from '@/lib/source';
+import browserCollections from 'fumadocs-mdx:collections/browser';
+import { DocsBody, DocsDescription, DocsPage, DocsTitle } from 'fumadocs-ui/layouts/docs/page';
+import defaultMdxComponents from 'fumadocs-ui/mdx';
+import { baseOptions } from '@/lib/layout.shared';
+import { useFumadocsLoader } from 'fumadocs-core/source/client';
+import { Suspense } from 'react';
+
+export const Route = createFileRoute('/docs/$')({
+  component: Page,
+  loader: async ({ params }) => {
+    const slugs = params._splat?.split('/') ?? [];
+    const data = await serverLoader({ data: slugs });
+    await clientLoader.preload(data.path);
+    return data;
+  },
+});
+
+const serverLoader = createServerFn({
+  method: 'GET',
+})
+  .inputValidator((slugs: string[]) => slugs)
+  .handler(async ({ data: slugs }) => {
+    const page = source.getPage(slugs);
+    if (!page) throw notFound();
+
+    return {
+      url: page.url,
+      path: page.path,
+      pageTree: await source.serializePageTree(source.getPageTree()),
+    };
+  });
+
+const clientLoader = browserCollections.docs.createClientLoader({
+  component(
+    { toc, frontmatter, default: MDX },
+    { url, path }: { url: string; path: string },
+  ) {
+    return (
+      <DocsPage toc={toc}>
+        <DocsTitle>{frontmatter.title}</DocsTitle>
+        <DocsDescription>{frontmatter.description}</DocsDescription>
+        <DocsBody>
+          <MDX components={{ ...defaultMdxComponents }} />
+        </DocsBody>
+      </DocsPage>
+    );
+  },
+});
+
+function Page() {
+  const data = useFumadocsLoader(Route.useLoaderData());
+
+  return (
+    <DocsLayout {...baseOptions()} tree={data.pageTree}>
+      <Suspense>{clientLoader.useContent(data.path, data)}</Suspense>
+    </DocsLayout>
+  );
+}
+```
+
+### Configure Router
+
+Create a router instance:
+
+```tsx title="src/router.tsx"
+import { createRouter as createTanStackRouter } from '@tanstack/react-router';
+import { routeTree } from './routeTree.gen';
+import { NotFound } from '@/components/not-found';
+
+export function getRouter() {
+  return createTanStackRouter({
+    routeTree,
+    defaultPreload: 'intent',
+    scrollRestoration: true,
+    defaultNotFoundComponent: NotFound,
+  });
+}
+```
+
+</Steps>
+
+## Framework Provider
+
+The `TanstackProvider` integrates Fumadocs with TanStack Router's navigation system:
+
+```tsx
+import { TanstackProvider } from 'fumadocs-ui/provider/tanstack';
+import { useParams, Link, useRouter, useRouterState } from '@tanstack/react-router';
+
+const framework = {
+  Link({ href, prefetch = true, ...props }) {
+    return (
+      <Link to={href} preload={prefetch ? 'intent' : false} {...props}>
+        {props.children}
+      </Link>
+    );
+  },
+  usePathname() {
+    const { isLoading, pathname } = useRouterState({
+      select: (state) => ({
+        isLoading: state.isLoading,
+        pathname: state.location.pathname,
+      }),
+    });
+
+    const activePathname = useRef(pathname);
+    
+    if (!isLoading) {
+      activePathname.current = pathname;
+    }
+    
+    return activePathname.current;
+  },
+  useRouter() {
+    const router = useRouter();
+
+    return {
+      push(url) {
+        void router.navigate({ href: url });
+      },
+      refresh() {
+        void router.invalidate();
+      },
+    };
+  },
+  useParams() {
+    return useParams({ strict: false });
+  },
+};
+```
+
+The provider uses:
+- `useRouterState()` for pathname tracking with loading state handling
+- `router.navigate()` for programmatic navigation
+- `router.invalidate()` for cache invalidation
+- `useParams()` for route parameters
+- `Link` component with preload support
+
+## Type-Safe Routing
+
+TanStack Router provides full TypeScript support:
+
+```tsx
+export const Route = createFileRoute('/docs/$')({
+  component: Page,
+  loader: async ({ params }) => {
+    // params is fully typed
+    const slugs = params._splat?.split('/') ?? [];
+    return await serverLoader({ data: slugs });
+  },
+});
+```
+
+## Server Functions
+
+Use server functions for data loading:
+
+```tsx
+const serverLoader = createServerFn({
+  method: 'GET',
+})
+  .inputValidator((slugs: string[]) => slugs)
+  .handler(async ({ data: slugs }) => {
+    const page = source.getPage(slugs);
+    if (!page) throw notFound();
+
+    return {
+      url: page.url,
+      path: page.path,
+      pageTree: await source.serializePageTree(source.getPageTree()),
+    };
+  });
+```
+
+## Pathname Stability
+
+The provider ensures pathname stability during navigation:
+
+```tsx
+usePathname() {
+  const { isLoading, pathname } = useRouterState({
+    select: (state) => ({
+      isLoading: state.isLoading,
+      pathname: state.location.pathname,
+    }),
+  });
+
+  const activePathname = useRef(pathname);
+  
+  // Only update when not loading
+  if (!isLoading) {
+    activePathname.current = pathname;
+  }
+  
+  return activePathname.current;
+}
+```
+
+This prevents UI flickers during route transitions.
+
+## Preloading
+
+TanStack Router supports intent-based preloading:
+
+```tsx
+Link({ href, prefetch = true, ...props }) {
+  return (
+    <Link to={href} preload={prefetch ? 'intent' : false} {...props}>
+      {props.children}
+    </Link>
+  );
+}
+```
+
+Links are preloaded when users hover over them.
+
+## Quick Start
+
+Use the CLI to create a new TanStack Start project with Fumadocs:
+
+```bash
+npx create-fumadocs-app
+```
+
+Select "TanStack Start" when prompted for the framework.

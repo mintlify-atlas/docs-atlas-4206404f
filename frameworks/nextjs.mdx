@@ -1,0 +1,204 @@
+---
+title: Next.js
+description: Integrate Fumadocs with Next.js App Router
+---
+
+Fumadocs provides first-class support for Next.js App Router with the `fumadocs-ui/provider/next` package. It leverages Next.js's built-in routing, navigation, and image optimization.
+
+## Installation
+
+<Steps>
+
+### Install Dependencies
+
+```bash
+npm install fumadocs-ui fumadocs-core fumadocs-mdx
+```
+
+### Create Next.js Config
+
+Configure Next.js to use the Fumadocs MDX plugin:
+
+```js title="next.config.mjs"
+import { createMDX } from 'fumadocs-mdx/next';
+
+const withMDX = createMDX();
+
+/** @type {import('next').NextConfig} */
+const config = {
+  reactStrictMode: true,
+};
+
+export default withMDX(config);
+```
+
+### Setup Root Layout
+
+Wrap your application with `RootProvider` in the root layout:
+
+```tsx title="app/layout.tsx"
+import { RootProvider } from 'fumadocs-ui/provider/next';
+import './global.css';
+import { Inter } from 'next/font/google';
+
+const inter = Inter({
+  subsets: ['latin'],
+});
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" className={inter.className} suppressHydrationWarning>
+      <body className="flex flex-col min-h-screen">
+        <RootProvider>{children}</RootProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+### Create Docs Layout
+
+Create a layout for your documentation pages:
+
+```tsx title="app/docs/layout.tsx"
+import { source } from '@/lib/source';
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+import { baseOptions } from '@/lib/layout.shared';
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <DocsLayout tree={source.getPageTree()} {...baseOptions()}>
+      {children}
+    </DocsLayout>
+  );
+}
+```
+
+### Create Catch-All Route
+
+Create a catch-all route to render documentation pages:
+
+```tsx title="app/docs/[[...slug]]/page.tsx"
+import { source } from '@/lib/source';
+import { DocsBody, DocsDescription, DocsPage, DocsTitle } from 'fumadocs-ui/layouts/docs/page';
+import { notFound } from 'next/navigation';
+import defaultMdxComponents from 'fumadocs-ui/mdx';
+import type { Metadata } from 'next';
+
+export default async function Page(props: { params: Promise<{ slug?: string[] }> }) {
+  const params = await props.params;
+  const page = source.getPage(params.slug);
+  if (!page) notFound();
+
+  const MDX = page.data.body;
+
+  return (
+    <DocsPage toc={page.data.toc} full={page.data.full}>
+      <DocsTitle>{page.data.title}</DocsTitle>
+      <DocsDescription>{page.data.description}</DocsDescription>
+      <DocsBody>
+        <MDX components={defaultMdxComponents} />
+      </DocsBody>
+    </DocsPage>
+  );
+}
+
+export async function generateStaticParams() {
+  return source.generateParams();
+}
+
+export async function generateMetadata(props: {
+  params: Promise<{ slug?: string[] }>;
+}): Promise<Metadata> {
+  const params = await props.params;
+  const page = source.getPage(params.slug);
+  if (!page) notFound();
+
+  return {
+    title: page.data.title,
+    description: page.data.description,
+  };
+}
+```
+
+</Steps>
+
+## Framework Provider
+
+The `NextProvider` component integrates Fumadocs with Next.js's navigation system:
+
+```tsx
+import { NextProvider } from 'fumadocs-ui/provider/next';
+import { useParams, usePathname, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import Image from 'next/image';
+
+export function NextProvider({
+  children,
+  Link: CustomLink,
+  Image: CustomImage,
+}: {
+  children: React.ReactNode;
+  Link?: Framework['Link'];
+  Image?: Framework['Image'];
+}) {
+  return (
+    <FrameworkProvider
+      usePathname={usePathname}
+      useRouter={useRouter}
+      useParams={useParams}
+      Link={CustomLink ?? (Link as Framework['Link'])}
+      Image={CustomImage ?? (Image as Framework['Image'])}
+    >
+      {children}
+    </FrameworkProvider>
+  );
+}
+```
+
+The provider automatically uses Next.js's:
+- `usePathname()` hook for pathname tracking
+- `useRouter()` hook for navigation
+- `useParams()` hook for route parameters
+- `Link` component for client-side navigation
+- `Image` component for optimized image loading
+
+## Custom Components
+
+You can override the default Link and Image components:
+
+```tsx title="app/layout.tsx"
+import { RootProvider } from 'fumadocs-ui/provider/next';
+import CustomLink from './components/custom-link';
+import CustomImage from './components/custom-image';
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <RootProvider Link={CustomLink} Image={CustomImage}>
+      {children}
+    </RootProvider>
+  );
+}
+```
+
+## Static Generation
+
+Fumadocs works seamlessly with Next.js static site generation:
+
+```tsx
+export async function generateStaticParams() {
+  return source.generateParams();
+}
+```
+
+This generates static pages for all your documentation at build time.
+
+## Quick Start
+
+Use the CLI to create a new Next.js project with Fumadocs:
+
+```bash
+npx create-fumadocs-app
+```
+
+Select "Next.js" when prompted for the framework.

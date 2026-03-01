@@ -1,0 +1,581 @@
+---
+title: Adding Search to Your Documentation
+description: Integrate powerful search functionality using Orama, Algolia, or other search engines
+---
+
+Search is essential for great documentation. Fumadocs supports multiple search solutions, from the built-in Orama search to cloud providers like Algolia and Orama Cloud.
+
+## Search Options Overview
+
+Fumadocs supports these search engines:
+
+- **Orama (Built-in)** - Free, self-hosted, recommended for most use cases
+- **Algolia** - Popular cloud search service
+- **Orama Cloud** - Managed Orama search
+- **Mixedbread** - AI-powered semantic search
+- **Custom** - Build your own search solution
+
+## Built-in Orama Search (Recommended)
+
+Orama provides fast, free, and self-hosted search that works out-of-the-box.
+
+<Steps>
+
+<Step>
+
+### Create Search API Route
+
+Create an API route to handle search requests:
+
+```ts title="app/api/search/route.ts"
+import { source } from '@/lib/source';
+import { createFromSource } from 'fumadocs-core/search/server';
+
+export const { GET } = createFromSource(source);
+```
+
+This creates a search server that:
+- Automatically indexes all your documentation pages
+- Provides full-text search capabilities
+- Returns structured results with highlights
+
+For other frameworks:
+
+```ts tab="React Router" title="app/routes/search.ts"
+import type { Route } from './+types/search';
+import { createFromSource } from 'fumadocs-core/search/server';
+import { source } from '@/lib/source';
+
+const server = createFromSource(source);
+
+export async function loader({ request }: Route.LoaderArgs) {
+  return server.GET(request);
+}
+```
+
+```ts tab="Tanstack Start" title="src/routes/api/search.ts"
+import { createFileRoute } from '@tanstack/react-router';
+import { source } from '@/lib/source';
+import { createFromSource } from 'fumadocs-core/search/server';
+
+const server = createFromSource(source);
+
+export const Route = createFileRoute('/api/search')({
+  server: {
+    handlers: {
+      GET: async ({ request }) => server.GET(request),
+    },
+  },
+});
+```
+
+</Step>
+
+<Step>
+
+### Add Search Dialog (Next.js)
+
+The search UI is configured by default in Fumadocs UI. You can customize it:
+
+```tsx title="components/search.tsx"
+import { useDocsSearch } from 'fumadocs-core/search/client';
+
+export function SearchDialog() {
+  const { search, setSearch, query } = useDocsSearch({
+    type: 'fetch',
+    api: '/api/search',
+  });
+
+  // The default UI is already integrated in DocsLayout
+  // This is for custom implementations
+}
+```
+
+</Step>
+
+<Step>
+
+### Test Your Search
+
+Start your dev server and press `Ctrl+K` (or `Cmd+K` on Mac) to open the search dialog. Try searching for content from your documentation!
+
+</Step>
+
+</Steps>
+
+## Static Site Search
+
+For static exports (no server), use static search mode:
+
+<Steps>
+
+<Step>
+
+### Configure Static Search API
+
+Update your search route to use `staticGET`:
+
+```ts title="app/api/search/route.ts"
+import { source } from '@/lib/source';
+import { createFromSource } from 'fumadocs-core/search/server';
+
+// Cache the response statically
+export const revalidate = false;
+
+export const { staticGET: GET } = createFromSource(source);
+```
+
+</Step>
+
+<Step>
+
+### Install Orama Client
+
+```bash
+npm install @orama/orama
+```
+
+</Step>
+
+<Step>
+
+### Create Static Search Dialog
+
+```tsx title="components/search.tsx"
+import { useDocsSearch } from 'fumadocs-core/search/client';
+
+export function SearchDialog() {
+  const client = useDocsSearch({
+    type: 'static',
+    api: '/api/search',
+  });
+
+  // Use with DocsLayout or build custom UI
+}
+```
+
+</Step>
+
+</Steps>
+
+<Callout type="warn">
+  Static search requires clients to download the entire search index. For large documentation sites (100+ pages), consider using a cloud solution like Algolia or Orama Cloud.
+</Callout>
+
+## Algolia Search
+
+Algolia provides powerful cloud-based search with advanced features.
+
+<Steps>
+
+<Step>
+
+### Set Up Algolia Index
+
+1. Create an [Algolia account](https://www.algolia.com/)
+2. Create a new index for your documentation
+3. Get your Application ID and API keys
+
+</Step>
+
+<Step>
+
+### Install Algolia Client
+
+```bash
+npm install algoliasearch
+```
+
+</Step>
+
+<Step>
+
+### Index Your Documentation
+
+Create a script to sync your docs to Algolia:
+
+```ts title="scripts/algolia-sync.ts"
+import algoliasearch from 'algoliasearch';
+import { source } from '@/lib/source';
+
+const client = algoliasearch(
+  process.env.ALGOLIA_APP_ID!,
+  process.env.ALGOLIA_ADMIN_KEY!
+);
+
+const index = client.initIndex('documentation');
+
+const records = source.getPages().map((page) => ({
+  objectID: page.url,
+  title: page.data.title,
+  description: page.data.description,
+  url: page.url,
+  content: page.data.structuredData,
+}));
+
+await index.saveObjects(records);
+console.log('✅ Synced to Algolia');
+```
+
+</Step>
+
+<Step>
+
+### Create Algolia Search Dialog
+
+```tsx title="components/search.tsx"
+'use client';
+
+import { useDocsSearch } from 'fumadocs-core/search/client';
+
+export function SearchDialog() {
+  const client = useDocsSearch({
+    type: 'algolia',
+    appId: process.env.NEXT_PUBLIC_ALGOLIA_APP_ID!,
+    apiKey: process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_KEY!,
+    indexName: 'documentation',
+  });
+
+  // Integrated with DocsLayout automatically
+}
+```
+
+</Step>
+
+<Step>
+
+### Configure Search in Layout
+
+Pass your search configuration to the docs layout:
+
+```tsx title="app/docs/layout.tsx"
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+import { source } from '@/lib/source';
+
+export default function Layout({ children }: LayoutProps<'/docs'>) {
+  return (
+    <DocsLayout
+      tree={source.getPageTree()}
+      // Search is configured automatically via RootProvider
+    >
+      {children}
+    </DocsLayout>
+  );
+}
+```
+
+</Step>
+
+</Steps>
+
+## Orama Cloud
+
+Orama Cloud provides managed search infrastructure:
+
+<Steps>
+
+<Step>
+
+### Create Orama Cloud Index
+
+1. Sign up at [Orama Cloud](https://cloud.orama.com/)
+2. Create a new index
+3. Get your API key and index ID
+
+</Step>
+
+<Step>
+
+### Install Orama Cloud SDK
+
+```bash
+npm install @oramacloud/client
+```
+
+</Step>
+
+<Step>
+
+### Configure Orama Cloud Search
+
+```tsx title="components/search.tsx"
+'use client';
+
+import { useDocsSearch } from 'fumadocs-core/search/client';
+
+export function SearchDialog() {
+  const client = useDocsSearch({
+    type: 'orama-cloud',
+    endpoint: process.env.NEXT_PUBLIC_ORAMA_ENDPOINT!,
+    apiKey: process.env.NEXT_PUBLIC_ORAMA_API_KEY!,
+  });
+}
+```
+
+</Step>
+
+</Steps>
+
+## Advanced Search Features
+
+### Tag-Based Filtering
+
+Filter search results by tags (useful for multi-docs):
+
+```ts title="app/api/search/route.ts"
+import { source } from '@/lib/source';
+import { createFromSource } from 'fumadocs-core/search/server';
+
+const server = createFromSource(source, {
+  buildIndex(page) {
+    return {
+      title: page.data.title,
+      description: page.data.description,
+      url: page.url,
+      id: page.url,
+      structuredData: page.data.structuredData,
+      // Add tag based on first segment
+      tag: page.slugs[0],
+    };
+  },
+});
+
+export const { GET } = server;
+```
+
+Use tags in the client:
+
+```tsx
+const client = useDocsSearch({
+  type: 'fetch',
+  tag: 'guides', // Only search 'guides' section
+});
+```
+
+### Multi-Language Search
+
+Configure language-specific search for internationalized docs:
+
+```ts title="app/api/search/route.ts"
+import { source } from '@/lib/source';
+import { createFromSource } from 'fumadocs-core/search/server';
+
+const server = createFromSource(source, {
+  localeMap: {
+    en: { language: 'english' },
+    es: { language: 'spanish' },
+    fr: { language: 'french' },
+    de: { language: 'german' },
+  },
+});
+
+export const { GET } = server;
+```
+
+For Chinese and Japanese, install additional tokenizers:
+
+```bash
+npm install @orama/tokenizers
+```
+
+```ts title="app/api/search/route.ts"
+import { source } from '@/lib/source';
+import { createFromSource } from 'fumadocs-core/search/server';
+import { createTokenizer } from '@orama/tokenizers/mandarin';
+
+const server = createFromSource(source, {
+  localeMap: {
+    en: { language: 'english' },
+    cn: {
+      language: 'chinese',
+      components: {
+        tokenizer: await createTokenizer(),
+      },
+    },
+  },
+});
+
+export const { GET } = server;
+```
+
+### Custom Search Indexes
+
+Create search from custom indexes instead of the source:
+
+```ts title="app/api/search/route.ts"
+import { createSearchAPI } from 'fumadocs-core/search/server';
+import { source } from '@/lib/source';
+
+export const { GET } = createSearchAPI('advanced', {
+  language: 'english',
+  indexes: source.getPages().map((page) => ({
+    title: page.data.title,
+    description: page.data.description,
+    url: page.url,
+    id: page.url,
+    structuredData: page.data.structuredData,
+    // Add custom fields
+    category: page.data.category,
+    tags: page.data.tags,
+  })),
+});
+```
+
+### Search Result Customization
+
+Customize how search results are displayed:
+
+```tsx title="components/search.tsx"
+import { useDocsSearch } from 'fumadocs-core/search/client';
+import { SearchDialog } from 'fumadocs-ui/components/dialog/search';
+
+export function CustomSearchDialog() {
+  const client = useDocsSearch({ type: 'fetch' });
+
+  return (
+    <SearchDialog
+      search={client.search}
+      onSearchChange={client.setSearch}
+      results={client.query}
+      // Custom result rendering
+      renderItem={(item) => (
+        <div className="flex flex-col">
+          <span className="font-semibold">{item.title}</span>
+          <span className="text-sm text-fd-muted-foreground">
+            {item.description}
+          </span>
+        </div>
+      )}
+    />
+  );
+}
+```
+
+## Headless Search
+
+Build completely custom search UI using the search client:
+
+```tsx title="components/custom-search.tsx"
+'use client';
+
+import { useDocsSearch } from 'fumadocs-core/search/client';
+import { useState } from 'react';
+
+export function CustomSearch() {
+  const { search, setSearch, query } = useDocsSearch({ type: 'fetch' });
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div>
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search documentation..."
+        className="px-4 py-2 border rounded-lg"
+      />
+      
+      {query.length > 0 && (
+        <div className="mt-2 border rounded-lg p-4">
+          {query.map((result) => (
+            <a
+              key={result.id}
+              href={result.url}
+              className="block p-2 hover:bg-fd-accent rounded"
+            >
+              <h3 className="font-semibold">{result.title}</h3>
+              <p className="text-sm text-fd-muted-foreground">
+                {result.description}
+              </p>
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## Search Performance Optimization
+
+### Debouncing Search Requests
+
+The search client automatically debounces requests, but you can customize the delay:
+
+```tsx
+const client = useDocsSearch({
+  type: 'fetch',
+  // Default is 100ms
+});
+```
+
+### Caching Search Results
+
+For static search, results are cached in the browser:
+
+```tsx
+const client = useDocsSearch({
+  type: 'static',
+  // Results cached after first load
+});
+```
+
+### Limiting Search Results
+
+Limit results server-side for better performance:
+
+```ts title="app/api/search/route.ts"
+const server = createFromSource(source, {
+  // Limit results per query
+  limit: 20,
+});
+```
+
+## Best Practices
+
+1. **Choose the Right Solution**: Use built-in Orama for small-to-medium docs, cloud solutions for large sites
+2. **Optimize Index Size**: For static search, keep index size under 1MB
+3. **Use Tag Filtering**: Implement tags for multi-docs or large documentation
+4. **Test Search Quality**: Regularly test search with common queries
+5. **Monitor Performance**: Track search API response times
+6. **Implement Analytics**: Track what users search for to improve docs
+
+## Troubleshooting
+
+### Search Not Working
+
+If search doesn't work:
+- Verify the search API route exists and returns data
+- Check browser console for errors
+- Ensure `structuredData` is generated in your MDX pages
+- Try restarting the dev server
+
+### Empty Search Results
+
+If searches return no results:
+- Check that your pages have `title` and content
+- Verify `structuredData` is properly extracted
+- Test the API endpoint directly in your browser
+- Check for JavaScript errors in the console
+
+### Slow Search Performance
+
+If search is slow:
+- Consider using cloud search for large docs
+- Reduce the size of indexed content
+- Implement pagination for results
+- Use tag filtering to reduce search scope
+
+### Static Search Not Loading
+
+If static search fails:
+- Check that the route is properly cached/static
+- Verify `@orama/orama` is installed
+- Check network tab for the search index download
+- Ensure the index size isn't too large (>1MB)
+
+## Next Steps
+
+- [Set up multi-docs](/docs/guides/multi-docs-setup) with separate search for each docs section
+- Implement search analytics to track user queries
+- Explore [advanced search UI customization](/docs/ui/search)

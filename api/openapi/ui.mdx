@@ -1,0 +1,421 @@
+---
+title: UI Components API
+description: React components for rendering OpenAPI documentation
+---
+
+## createAPIPage
+
+Create a React component for rendering OpenAPI documentation pages.
+
+```tsx
+import { createAPIPage } from 'fumadocs-openapi/ui';
+import { createOpenAPI } from 'fumadocs-openapi/server';
+
+const server = createOpenAPI({
+  input: ['./openapi.yaml'],
+});
+
+export const APIPage = createAPIPage(server, {
+  // options
+});
+```
+
+<ParamField name="server" type="OpenAPIServer" required>
+  OpenAPI server instance from `createOpenAPI()`.
+</ParamField>
+
+<ParamField name="options" type="CreateAPIPageOptions">
+  Configuration options for the API page component.
+</ParamField>
+
+**Returns:** React component accepting `ApiPageProps`
+
+## CreateAPIPageOptions
+
+### Type Generation
+
+<ParamField name="generateTypeScriptDefinitions" type="(schema: JSONSchema, ctx: GenerateTypeScriptDefinitionsContext) => Awaitable<string | undefined>">
+  Generate TypeScript type definitions from JSON schemas.
+  
+  ```tsx
+  generateTypeScriptDefinitions: async (schema, ctx) => {
+    const { compile } = await import('@fumari/json-schema-ts');
+    return compile(schema, {
+      name: 'Response',
+      readOnly: ctx.readOnly,
+      writeOnly: ctx.writeOnly,
+    });
+  }
+  ```
+</ParamField>
+
+<ParamField name="generateTypeScriptSchema" type="function" deprecated>
+  Legacy type generation. Use `generateTypeScriptDefinitions` instead.
+</ParamField>
+
+### Code Samples
+
+<ParamField name="codeUsages" type="CodeUsageGeneratorRegistry">
+  Registry of code sample generators for different programming languages.
+  
+  ```tsx
+  import { createCodeUsageGeneratorRegistry } from 'fumadocs-openapi/requests/generators';
+  
+  const registry = createCodeUsageGeneratorRegistry();
+  registry.add('typescript', {
+    lang: 'typescript',
+    label: 'TypeScript',
+    generate: (url, data) => {
+      return `fetch('${url}', ${JSON.stringify(data)})`;
+    },
+  });
+  ```
+</ParamField>
+
+<ParamField name="generateCodeSamples" type="(method: MethodInformation) => Awaitable<InlineCodeUsageGenerator[]>">
+  Generate inline code samples for specific operations.
+</ParamField>
+
+### Rendering
+
+<ParamField name="shiki" type="ResolvedShikiConfig" required>
+  Shiki syntax highlighting configuration. Use `configDefault` from `fumadocs-core/highlight`.
+</ParamField>
+
+<ParamField name="shikiOptions" type="CoreHighlightOptions">
+  Additional Shiki highlighting options.
+</ParamField>
+
+<ParamField name="renderMarkdown" type="(md: string) => ReactNode">
+  Custom markdown renderer. Default uses remark with GFM support.
+</ParamField>
+
+<ParamField name="showResponseSchema" type="boolean" default="true">
+  Show full response schema instead of only examples and TypeScript definitions.
+</ParamField>
+
+### Media Types
+
+<ParamField name="mediaAdapters" type="Record<string, MediaAdapter>">
+  Support custom media types for server-side generation.
+  
+  ```tsx
+  import { defaultAdapters } from 'fumadocs-openapi/requests/media/adapter';
+  
+  mediaAdapters: {
+    ...defaultAdapters,
+    'application/custom': customAdapter,
+  }
+  ```
+</ParamField>
+
+### Layout Customization
+
+<ParamField name="content.renderPageLayout" type="function">
+  Customize the entire page layout.
+  
+  ```tsx
+  renderPageLayout: async (slots, ctx) => (
+    <div>
+      {slots.operations?.map(op => op.children)}
+      {slots.webhooks?.map(op => op.children)}
+    </div>
+  )
+  ```
+</ParamField>
+
+<ParamField name="content.renderOperationLayout" type="function">
+  Customize individual operation layout.
+  
+  ```tsx
+  renderOperationLayout: async (slots, ctx, method) => (
+    <div className="flex flex-col">
+      {slots.header}
+      {slots.apiPlayground}
+      {slots.description}
+      {slots.authSchemes}
+      {slots.paremeters}
+      {slots.body}
+      {slots.responses}
+      {slots.callbacks}
+      <div className="sticky top-4">
+        {slots.apiExample}
+      </div>
+    </div>
+  )
+  ```
+</ParamField>
+
+<ParamField name="content.renderWebhookLayout" type="function">
+  Customize webhook layout.
+</ParamField>
+
+<ParamField name="content.renderAPIExampleLayout" type="function">
+  Customize API example section layout.
+  
+  ```tsx
+  renderAPIExampleLayout: async (slots, ctx) => (
+    <div>
+      {slots.selector}
+      {slots.usageTabs}
+      {slots.responseTabs}
+    </div>
+  )
+  ```
+</ParamField>
+
+<ParamField name="content.renderAPIExampleUsageTabs" type="function">
+  Customize API usage tabs rendering.
+</ParamField>
+
+<ParamField name="content.renderResponseTabs" type="function">
+  Customize response tabs.
+</ParamField>
+
+<ParamField name="content.renderRequestTabs" type="function">
+  Customize request tabs.
+</ParamField>
+
+### Schema UI
+
+<ParamField name="schemaUI.render" type="(options: SchemaUIOptions, ctx: RenderContext) => Awaitable<ReactNode>">
+  Custom renderer for JSON schema info.
+</ParamField>
+
+<ParamField name="schemaUI.showExample" type="boolean" default="false">
+  Show examples under generated JSON schema content.
+</ParamField>
+
+### Playground
+
+<ParamField name="playground.enabled" type="boolean" default="true">
+  Enable the interactive API playground.
+</ParamField>
+
+<ParamField name="playground.render" type="function">
+  Custom playground renderer.
+  
+  ```tsx
+  playground: {
+    render: ({ path, method, ctx }) => (
+      <CustomPlayground
+        endpoint={path}
+        httpMethod={method.method}
+      />
+    ),
+  }
+  ```
+</ParamField>
+
+### Client Options
+
+<ParamField name="client" type="APIPageClientOptions">
+  Client-side options passed to the component.
+</ParamField>
+
+## ApiPageProps
+
+Props for the generated API page component.
+
+```tsx
+interface ApiPageProps {
+  document: Promise<ProcessedDocument> | string | ProcessedDocument;
+  showTitle?: boolean;
+  showDescription?: boolean;
+  operations?: OperationItem[];
+  webhooks?: WebhookItem[];
+}
+```
+
+<ParamField name="document" type="Promise<ProcessedDocument> | string | ProcessedDocument" required>
+  OpenAPI document to render. Can be:
+  - Schema ID string (will be loaded from server)
+  - Processed document object
+  - Promise resolving to processed document
+</ParamField>
+
+<ParamField name="showTitle" type="boolean" default="false">
+  Show operation title as heading.
+</ParamField>
+
+<ParamField name="showDescription" type="boolean">
+  Show operation description.
+</ParamField>
+
+<ParamField name="operations" type="OperationItem[]">
+  Array of operations to render.
+  
+  ```tsx
+  operations: [
+    { path: '/users', method: 'get' },
+    { path: '/users', method: 'post' },
+  ]
+  ```
+</ParamField>
+
+<ParamField name="webhooks" type="WebhookItem[]">
+  Array of webhooks to render.
+  
+  ```tsx
+  webhooks: [
+    { name: 'user.created', method: 'post' },
+  ]
+  ```
+</ParamField>
+
+## OperationItem
+
+```ts
+interface OperationItem {
+  path: string;
+  method: HttpMethods;
+}
+```
+
+<ParamField name="path" type="string" required>
+  The path of operation in OpenAPI `paths`.
+</ParamField>
+
+<ParamField name="method" type="HttpMethods" required>
+  HTTP method: `get`, `post`, `put`, `patch`, `delete`, `head`, `options`, `trace`
+</ParamField>
+
+## WebhookItem
+
+```ts
+interface WebhookItem {
+  name: string;
+  method: HttpMethods;
+}
+```
+
+<ParamField name="name" type="string" required>
+  Webhook name in OpenAPI `webhooks`.
+</ParamField>
+
+<ParamField name="method" type="HttpMethods" required>
+  HTTP method for the webhook.
+</ParamField>
+
+## RenderContext
+
+Context object passed to custom renderers:
+
+```ts
+interface RenderContext {
+  slugger: Slugger;
+  schema: ProcessedDocument;
+  proxyUrl?: string;
+  mediaAdapters: Record<string, MediaAdapter>;
+  generateTypeScriptDefinitions: (schema: JSONSchema, ctx: GenerateTypeScriptDefinitionsContext) => Awaitable<string | undefined>;
+  renderMarkdown: (md: string) => ReactNode;
+  renderHeading: (depth: number, text: string, props?: HTMLAttributes<HTMLHeadingElement>) => ReactNode;
+  renderCodeBlock: (lang: string, code: string) => ReactNode;
+  // ... plus all CreateAPIPageOptions
+}
+```
+
+## Example: Basic Usage
+
+```tsx
+import { createAPIPage } from 'fumadocs-openapi/ui';
+import { createOpenAPI } from 'fumadocs-openapi/server';
+
+const server = createOpenAPI({
+  input: ['./openapi.yaml'],
+});
+
+export const APIPage = createAPIPage(server);
+
+// In your page component:
+export default function Page() {
+  return (
+    <APIPage
+      document="./openapi.yaml"
+      operations={[
+        { path: '/users', method: 'get' },
+        { path: '/users/{id}', method: 'get' },
+      ]}
+    />
+  );
+}
+```
+
+## Example: Custom Layout
+
+```tsx
+export const APIPage = createAPIPage(server, {
+  content: {
+    renderOperationLayout: async (slots, ctx, method) => (
+      <div className="grid grid-cols-2 gap-6">
+        <div>
+          {slots.header}
+          {slots.description}
+          {slots.authSchemes}
+          {slots.paremeters}
+          {slots.body}
+          {slots.responses}
+        </div>
+        <div className="sticky top-4">
+          {slots.apiPlayground}
+          {slots.apiExample}
+        </div>
+      </div>
+    ),
+  },
+});
+```
+
+## Example: TypeScript Generation
+
+```tsx
+import { createAPIPage } from 'fumadocs-openapi/ui';
+
+export const APIPage = createAPIPage(server, {
+  async generateTypeScriptDefinitions(schema, ctx) {
+    if (typeof schema !== 'object') return;
+    
+    const { compile } = await import('@fumari/json-schema-ts');
+    
+    try {
+      return compile(schema, {
+        name: ctx.readOnly ? 'Response' : 'Request',
+        readOnly: ctx.readOnly,
+        writeOnly: ctx.writeOnly,
+        getSchemaId: ctx.schema.getRawRef,
+      });
+    } catch (e) {
+      console.warn('Failed to generate TypeScript:', e);
+    }
+  },
+});
+```
+
+## Example: Code Samples
+
+```tsx
+import { createCodeUsageGeneratorRegistry } from 'fumadocs-openapi/requests/generators';
+
+const codeUsages = createCodeUsageGeneratorRegistry();
+
+codeUsages.add('typescript', {
+  lang: 'typescript',
+  label: 'TypeScript',
+  generate: (url, data, { mediaAdapters }) => {
+    const headers = data.header ? JSON.stringify(data.header, null, 2) : '{}';
+    const body = data.body ? JSON.stringify(data.body, null, 2) : 'undefined';
+    
+    return `const response = await fetch('${url}', {
+  method: '${data.method}',
+  headers: ${headers},
+  body: ${body},
+});
+
+const data = await response.json();`;
+  },
+});
+
+export const APIPage = createAPIPage(server, {
+  codeUsages,
+});
+```

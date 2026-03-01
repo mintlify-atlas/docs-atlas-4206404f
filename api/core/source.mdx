@@ -1,0 +1,423 @@
+---
+title: Source API
+description: Create and manage content sources for Fumadocs
+---
+
+## Overview
+
+The Source API provides interfaces and utilities for creating content sources that power your documentation. Sources represent collections of pages and metadata files that can be transformed into a page tree.
+
+## Core Types
+
+### Source
+
+The main source interface.
+
+```typescript
+interface Source<Config extends SourceConfig = SourceConfig> {
+  files: VirtualFile<Config>[];
+}
+```
+
+<ParamField path="files" type="VirtualFile[]">
+  Array of virtual files (pages and meta files) in the source
+</ParamField>
+
+### SourceConfig
+
+Configuration for defining page and meta data types.
+
+```typescript
+interface SourceConfig {
+  pageData: PageData;
+  metaData: MetaData;
+}
+```
+
+<ParamField path="pageData" type="PageData">
+  Type definition for page data properties
+</ParamField>
+
+<ParamField path="metaData" type="MetaData">
+  Type definition for meta file data properties
+</ParamField>
+
+### PageData
+
+Data structure for individual pages.
+
+```typescript
+interface PageData {
+  icon?: string | undefined;
+  title?: string;
+  description?: string | undefined;
+}
+```
+
+<ParamField path="icon" type="string">
+  Icon identifier for the page
+</ParamField>
+
+<ParamField path="title" type="string">
+  Page title
+</ParamField>
+
+<ParamField path="description" type="string">
+  Page description
+</ParamField>
+
+### MetaData
+
+Data structure for meta files that control folder behavior.
+
+```typescript
+interface MetaData {
+  icon?: string | undefined;
+  title?: string | undefined;
+  root?: boolean | undefined;
+  pages?: string[] | undefined;
+  defaultOpen?: boolean | undefined;
+  collapsible?: boolean | undefined;
+  description?: string | undefined;
+}
+```
+
+<ParamField path="title" type="string">
+  Folder title
+</ParamField>
+
+<ParamField path="root" type="boolean">
+  Mark folder as a root folder in the page tree
+</ParamField>
+
+<ParamField path="pages" type="string[]">
+  Explicit order of pages in the folder
+</ParamField>
+
+<ParamField path="defaultOpen" type="boolean">
+  Whether the folder should be open by default
+</ParamField>
+
+<ParamField path="collapsible" type="boolean">
+  Whether the folder can be collapsed
+</ParamField>
+
+### VirtualFile
+
+Represents a file in the virtual file system.
+
+```typescript
+type VirtualFile<Config extends SourceConfig = SourceConfig> =
+  | VirtualPage<Config['pageData']>
+  | VirtualMeta<Config['metaData']>;
+
+interface VirtualPage<Data extends PageData> {
+  type: 'page';
+  path: string;
+  absolutePath?: string;
+  slugs?: string[];
+  data: Data;
+}
+
+interface VirtualMeta<Data extends MetaData> {
+  type: 'meta';
+  path: string;
+  absolutePath?: string;
+  data: Data;
+}
+```
+
+<ParamField path="type" type="'page' | 'meta'">
+  File type discriminator
+</ParamField>
+
+<ParamField path="path" type="string">
+  Virtualized path relative to content directory (e.g., `docs/page.mdx`)
+</ParamField>
+
+<ParamField path="absolutePath" type="string">
+  Absolute file system path
+</ParamField>
+
+<ParamField path="slugs" type="string[]">
+  URL slugs for the page (pages only)
+</ParamField>
+
+<ParamField path="data" type="PageData | MetaData">
+  Associated data for the file
+</ParamField>
+
+## Functions
+
+### source()
+
+Create a new source from pages and meta files.
+
+```typescript
+function source<Page extends PageData, Meta extends MetaData>(config: {
+  pages: VirtualPage<Page>[];
+  metas: VirtualMeta<Meta>[];
+}): Source<{
+  pageData: Page;
+  metaData: Meta;
+}>;
+```
+
+<ParamField path="config.pages" type="VirtualPage[]" required>
+  Array of virtual page files
+</ParamField>
+
+<ParamField path="config.metas" type="VirtualMeta[]" required>
+  Array of virtual meta files
+</ParamField>
+
+<ResponseField name="Source" type="Source">
+  A source object containing all files
+</ResponseField>
+
+**Example:**
+
+```typescript
+import { source } from 'fumadocs-core/source';
+
+const mySource = source({
+  pages: [
+    {
+      type: 'page',
+      path: 'docs/getting-started.mdx',
+      data: {
+        title: 'Getting Started',
+        description: 'Learn the basics'
+      }
+    }
+  ],
+  metas: [
+    {
+      type: 'meta',
+      path: 'docs/meta.json',
+      data: {
+        title: 'Documentation',
+        defaultOpen: true
+      }
+    }
+  ]
+});
+```
+
+### multiple()
+
+Combine multiple sources with type discrimination.
+
+```typescript
+function multiple<T extends Record<string, Source>>(
+  sources: T
+): Source<_ConfigUnion_<T>>;
+```
+
+<ParamField path="sources" type="Record<string, Source>" required>
+  Object mapping source names to Source objects
+</ParamField>
+
+<ResponseField name="Source" type="Source">
+  Combined source with type discrimination added to each file's data
+</ResponseField>
+
+**Example:**
+
+```typescript
+import { multiple } from 'fumadocs-core/source';
+import { docsSource, blogSource } from './sources';
+
+const combinedSource = multiple({
+  docs: docsSource,
+  blog: blogSource
+});
+
+// Each file now has a `type` property: 'docs' or 'blog'
+```
+
+### update()
+
+Update a source object with chainable transformations.
+
+```typescript
+function update<Config extends SourceConfig>(
+  source: Source<Config>
+): _SourceUpdate_<Config>;
+
+interface _SourceUpdate_<Config extends SourceConfig> {
+  files<Page extends PageData, Meta extends MetaData>(
+    fn: (files: VirtualFile<Config>[]) => (VirtualPage<Page> | VirtualMeta<Meta>)[]
+  ): _SourceUpdate_<{pageData: Page; metaData: Meta}>;
+  
+  page<V extends PageData>(
+    fn: (page: VirtualPage<Config['pageData']>) => VirtualPage<V>
+  ): _SourceUpdate_<{pageData: V; metaData: Config['metaData']}>;
+  
+  meta<V extends MetaData>(
+    fn: (meta: VirtualMeta<Config['metaData']>) => VirtualMeta<V>
+  ): _SourceUpdate_<{pageData: Config['pageData']; metaData: V}>;
+  
+  build(): Source<Config>;
+}
+```
+
+<ParamField path="source" type="Source" required>
+  Source to update
+</ParamField>
+
+<ResponseField name="_SourceUpdate_" type="object">
+  Chainable update builder with methods:
+  - `files(fn)`: Transform all files
+  - `page(fn)`: Transform only page files
+  - `meta(fn)`: Transform only meta files
+  - `build()`: Return the updated source
+</ResponseField>
+
+**Example:**
+
+```typescript
+import { update } from 'fumadocs-core/source';
+
+const updatedSource = update(mySource)
+  .page(page => ({
+    ...page,
+    data: {
+      ...page.data,
+      lastModified: new Date().toISOString()
+    }
+  }))
+  .meta(meta => ({
+    ...meta,
+    data: {
+      ...meta.data,
+      collapsible: true
+    }
+  }))
+  .build();
+```
+
+## Storage Adapters
+
+### FileSystem
+
+In-memory file system for managing virtual files.
+
+```typescript
+class FileSystem<File> {
+  files: Map<string, File>;
+  folders: Map<string, string[]>;
+  
+  constructor(inherit?: FileSystem<File>);
+  read(path: string): File | undefined;
+  readDir(path: string): string[] | undefined;
+  write(path: string, file: File): void;
+  delete(path: string, recursive?: boolean): boolean;
+  getFiles(): string[];
+  makeDir(path: string): void;
+}
+```
+
+**Methods:**
+
+<ParamField path="read(path)" type="(path: string) => File | undefined">
+  Read a file at the specified path
+</ParamField>
+
+<ParamField path="readDir(path)" type="(path: string) => string[] | undefined">
+  Get direct children of a folder
+</ParamField>
+
+<ParamField path="write(path, file)" type="(path: string, file: File) => void">
+  Write a file to the file system
+</ParamField>
+
+<ParamField path="delete(path, recursive?)" type="(path: string, recursive?: boolean) => boolean">
+  Delete a file or directory. Set `recursive` to true to delete directories with contents.
+</ParamField>
+
+<ParamField path="getFiles()" type="() => string[]">
+  Get all file paths in the file system
+</ParamField>
+
+<ParamField path="makeDir(path)" type="(path: string) => void">
+  Create a directory and all parent directories
+</ParamField>
+
+**Example:**
+
+```typescript
+import { FileSystem } from 'fumadocs-core/source';
+
+const fs = new FileSystem();
+
+fs.write('docs/intro.mdx', {
+  content: '# Introduction',
+  frontmatter: { title: 'Intro' }
+});
+
+const file = fs.read('docs/intro.mdx');
+const children = fs.readDir('docs');
+```
+
+## Utilities
+
+### PathUtils
+
+Path manipulation utilities for virtual file paths.
+
+```typescript
+import * as PathUtils from 'fumadocs-core/source';
+
+PathUtils.joinPath(...paths: string[]): string;
+PathUtils.dirname(path: string): string;
+PathUtils.basename(path: string, ext?: string): string;
+PathUtils.extname(path: string): string;
+PathUtils.splitPath(path: string): string[];
+```
+
+**Example:**
+
+```typescript
+import * as PathUtils from 'fumadocs-core/source';
+
+PathUtils.joinPath('docs', 'getting-started.mdx');
+// => 'docs/getting-started.mdx'
+
+PathUtils.dirname('docs/getting-started.mdx');
+// => 'docs'
+
+PathUtils.basename('docs/getting-started.mdx', '.mdx');
+// => 'getting-started'
+```
+
+### getSlugs()
+
+Generate URL slugs from file paths.
+
+```typescript
+function getSlugs(file: string): string[];
+```
+
+<ParamField path="file" type="string" required>
+  Virtual file path
+</ParamField>
+
+<ResponseField name="slugs" type="string[]">
+  Array of URL slugs, with non-ASCII characters encoded
+</ResponseField>
+
+**Example:**
+
+```typescript
+import { getSlugs } from 'fumadocs-core/source';
+
+getSlugs('docs/getting-started.mdx');
+// => ['docs', 'getting-started']
+
+getSlugs('docs/index.mdx');
+// => ['docs']
+
+getSlugs('docs/(group)/page.mdx');
+// => ['docs', 'page'] (group folders are ignored)
+```

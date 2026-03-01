@@ -1,0 +1,623 @@
+---
+title: OG Images
+description: Generate Open Graph images for your documentation pages
+---
+
+Generate beautiful Open Graph images for social media previews. Fumadocs provides built-in utilities and templates for creating dynamic OG images using Next.js or framework-agnostic solutions.
+
+## Next.js Integration
+
+Use Next.js built-in `next/og` for metadata image generation.
+
+### Installation
+
+No additional packages needed - `next/og` is included with Next.js.
+
+### Setup
+
+Define image metadata for pages:
+
+```ts title="lib/source.ts"
+import { type InferPageType } from 'fumadocs-core/source';
+import { source } from '@/lib/source';
+
+export function getPageImage(page: InferPageType<typeof source>) {
+  const segments = [...page.slugs, 'image.png'];
+
+  return {
+    segments,
+    url: `/og/docs/${segments.join('/')}`,
+  };
+}
+```
+
+Add image to page metadata:
+
+```tsx title="app/docs/[[...slug]]/page.tsx"
+import { notFound } from 'next/navigation';
+import { source, getPageImage } from '@/lib/source';
+import type { Metadata } from 'next';
+
+export async function generateMetadata(
+  props: PageProps<'/docs/[[...slug]]'>
+): Promise<Metadata> {
+  const params = await props.params;
+  const page = source.getPage(params.slug);
+  if (!page) notFound();
+
+  return {
+    title: page.data.title,
+    description: page.data.description,
+    openGraph: {
+      images: getPageImage(page).url,
+    },
+  };
+}
+```
+
+### Create Route Handler
+
+Generate images at build time:
+
+```tsx title="app/og/docs/[...slug]/route.tsx"
+import { getPageImage, source } from '@/lib/source';
+import { notFound } from 'next/navigation';
+import { ImageResponse } from 'next/og';
+import { generate as DefaultImage } from 'fumadocs-ui/og';
+
+export const revalidate = false;
+
+export async function GET(
+  _req: Request,
+  { params }: RouteContext<'/og/docs/[...slug]'>
+) {
+  const { slug } = await params;
+  const page = source.getPage(slug.slice(0, -1));
+  if (!page) notFound();
+
+  return new ImageResponse(
+    <DefaultImage
+      title={page.data.title}
+      description={page.data.description}
+      site="My App"
+    />,
+    {
+      width: 1200,
+      height: 630,
+    },
+  );
+}
+
+export function generateStaticParams() {
+  return source.getPages().map((page) => ({
+    lang: page.locale,
+    slug: getPageImage(page).segments,
+  }));
+}
+```
+
+### Customization
+
+Customize the default image template:
+
+```tsx title="app/og/docs/[...slug]/route.tsx"
+import { ImageResponse } from 'next/og';
+import { generate } from 'fumadocs-ui/og';
+
+export async function GET() {
+  return new ImageResponse(
+    <generate
+      title="My Page Title"
+      description="Page description"
+      site="My Documentation"
+      primaryColor="rgba(100,200,255,0.3)"
+      primaryTextColor="rgb(100,200,255)"
+      icon={<svg>...</svg>}
+    />,
+    {
+      width: 1200,
+      height: 630,
+    },
+  );
+}
+```
+
+### CLI Templates
+
+Install alternative templates using Fumadocs CLI:
+
+```bash
+npx @fumadocs/cli@latest add og/mono
+```
+
+Available templates:
+- `default` - Default gradient template
+- `mono` - Monochrome template
+- `gradient` - Custom gradient template
+
+## Takumi Integration
+
+Takumi provides a framework-agnostic, high-performance alternative to `next/og`.
+
+### Installation
+
+```package-install
+@takumi-rs/image-response
+```
+
+### Configure External Package
+
+Add Takumi to external packages:
+
+```ts title="next.config.ts"
+import type { NextConfig } from 'next';
+
+const config: NextConfig = {
+  serverExternalPackages: ['@takumi-rs/image-response'],
+};
+
+export default config;
+```
+
+For other frameworks:
+
+```ts title="vite.config.ts" tab="Vite"
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  ssr: {
+    external: ['@takumi-rs/image-response'],
+  },
+});
+```
+
+```ts title="vite.config.ts" tab="TanStack Start / Nitro"
+import { defineConfig } from 'vite';
+import takumiPackageJson from '@takumi-rs/core/package.json' with { type: 'json' };
+
+export default defineConfig({
+  nitro: {
+    externals: {
+      external: ['@takumi-rs/core'],
+      traceInclude: Object.keys(takumiPackageJson.optionalDependencies),
+    },
+  },
+});
+```
+
+```ts title="waku.config.ts" tab="Waku"
+import { defineConfig } from 'waku/config';
+
+export default defineConfig({
+  vite: {
+    ssr: {
+      external: ['@takumi-rs/image-response'],
+    },
+  },
+});
+```
+
+### Next.js Usage
+
+```tsx title="app/og/docs/[...slug]/route.tsx"
+import { getPageImage, source } from '@/lib/source';
+import { notFound } from 'next/navigation';
+import { ImageResponse } from '@takumi-rs/image-response';
+import { generate as DefaultImage } from 'fumadocs-ui/og/takumi';
+
+export const revalidate = false;
+
+export async function GET(
+  _req: Request,
+  { params }: RouteContext<'/og/docs/[...slug]'>
+) {
+  const { slug } = await params;
+  const page = source.getPage(slug.slice(0, -1));
+  if (!page) notFound();
+
+  return new ImageResponse(
+    <DefaultImage
+      title={page.data.title}
+      description={page.data.description}
+      site="My App"
+    />,
+    {
+      width: 1200,
+      height: 630,
+      format: 'webp', // Smaller file size
+    },
+  );
+}
+
+export function generateStaticParams() {
+  return source.getPages().map((page) => ({
+    lang: page.locale,
+    slug: getPageImage(page).segments,
+  }));
+}
+```
+
+### React Router Usage
+
+```tsx title="app/routes/og.docs.tsx"
+import { ImageResponse } from '@takumi-rs/image-response';
+import { source } from '@/lib/source';
+import { generate as DefaultImage } from 'fumadocs-ui/og/takumi';
+import type { Route } from './+types/og.docs';
+
+export function loader({ params }: Route.LoaderArgs) {
+  const slugs = params['*']
+    .split('/')
+    .filter((v) => v.length > 0)
+    .slice(0, -1);
+  const page = source.getPage(slugs);
+
+  if (!page) throw new Response(undefined, { status: 404 });
+
+  return new ImageResponse(
+    <DefaultImage
+      title={page.data.title}
+      description={page.data.description}
+      site="My App"
+    />,
+    {
+      width: 1200,
+      height: 630,
+      format: 'webp',
+    },
+  );
+}
+```
+
+Register the route:
+
+```ts title="app/routes.ts"
+import { type RouteConfig, route } from '@react-router/dev/routes';
+
+export default [
+  route('/og/docs/*', 'routes/og.docs.tsx'),
+] satisfies RouteConfig;
+```
+
+Configure prerendering:
+
+```ts title="react-router.config.ts"
+import type { Config } from '@react-router/dev/config';
+import { glob } from 'node:fs/promises';
+import { createGetUrl, getSlugs } from 'fumadocs-core/source';
+
+const getUrl = createGetUrl('/docs');
+
+export default {
+  ssr: true,
+  async prerender({ getStaticPaths }) {
+    const paths = [...getStaticPaths()];
+
+    for await (const entry of glob('**/*.mdx', { cwd: 'content/docs' })) {
+      const slugs = getSlugs(entry);
+      paths.push(getUrl(slugs));
+      paths.push(`/og/docs/${[...slugs, 'image.webp'].join('/')}`);
+    }
+
+    return paths;
+  },
+} satisfies Config;
+```
+
+### Waku Usage
+
+```tsx title="src/pages/_api/og/docs/[...slugs]/image.webp.tsx"
+import { source } from '@/lib/source';
+import { ImageResponse } from '@takumi-rs/image-response';
+import { generate as DefaultImage } from 'fumadocs-ui/og/takumi';
+import { ApiContext } from 'waku/router';
+
+export async function GET(
+  _: Request,
+  { params }: ApiContext<'/og/docs/[...slugs]/image.webp'>
+) {
+  const page = source.getPage(params.slugs);
+  if (!page) return new Response(undefined, { status: 404 });
+
+  return new ImageResponse(
+    <DefaultImage
+      title={page.data.title}
+      description={page.data.description}
+      site="My App"
+    />,
+    {
+      width: 1200,
+      height: 630,
+      format: 'webp',
+    },
+  );
+}
+
+export async function getConfig() {
+  const pages = source
+    .generateParams()
+    .map((item) => (item.lang ? [item.lang, ...item.slug] : item.slug));
+
+  return {
+    render: 'static' as const,
+    staticPaths: pages,
+  } as const;
+}
+```
+
+## Built-in Templates
+
+### Default Template
+
+```tsx
+import { generate } from 'fumadocs-ui/og';
+// or for Takumi
+import { generate } from 'fumadocs-ui/og/takumi';
+
+<generate
+  title="Page Title"
+  description="Page description"
+  site="Site Name"
+  icon={<YourIcon />}
+  primaryColor="rgba(255,150,255,0.3)"
+  primaryTextColor="rgb(255,150,255)"
+/>
+```
+
+### Properties
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `title` | `ReactNode` | Page title |
+| `description` | `ReactNode` | Page description |
+| `site` | `ReactNode` | Site name |
+| `icon` | `ReactNode` | Site icon/logo |
+| `primaryColor` | `string` | Background gradient color |
+| `primaryTextColor` | `string` | Text accent color |
+
+## Custom Templates
+
+Create your own image template:
+
+```tsx title="lib/og-template.tsx"
+import type { ReactNode } from 'react';
+
+interface TemplateProps {
+  title: string;
+  description?: string;
+  category?: string;
+}
+
+export function CustomTemplate({ title, description, category }: TemplateProps) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#fff',
+        padding: '80px',
+        fontFamily: 'Inter',
+      }}
+    >
+      {category && (
+        <div
+          style={{
+            fontSize: '32px',
+            color: '#666',
+            marginBottom: '20px',
+          }}
+        >
+          {category}
+        </div>
+      )}
+      
+      <div
+        style={{
+          fontSize: '72px',
+          fontWeight: 'bold',
+          color: '#000',
+          lineHeight: 1.2,
+        }}
+      >
+        {title}
+      </div>
+      
+      {description && (
+        <div
+          style={{
+            fontSize: '40px',
+            color: '#666',
+            marginTop: '30px',
+          }}
+        >
+          {description}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+Use it in your route:
+
+```tsx title="app/og/docs/[...slug]/route.tsx"
+import { ImageResponse } from 'next/og';
+import { CustomTemplate } from '@/lib/og-template';
+
+export async function GET() {
+  return new ImageResponse(
+    <CustomTemplate
+      title="My Page"
+      description="Page description"
+      category="Guide"
+    />,
+    {
+      width: 1200,
+      height: 630,
+    },
+  );
+}
+```
+
+## Advanced Customization
+
+### Dynamic Content
+
+Add dynamic elements to images:
+
+```tsx
+import { ImageResponse } from 'next/og';
+
+export async function GET() {
+  // Fetch data
+  const stats = await getStats();
+  
+  return new ImageResponse(
+    <div style={{ display: 'flex' }}>
+      <h1>{stats.title}</h1>
+      <p>Views: {stats.views}</p>
+      <p>Updated: {stats.lastModified}</p>
+    </div>,
+    { width: 1200, height: 630 },
+  );
+}
+```
+
+### Custom Fonts
+
+Load custom fonts:
+
+```tsx
+import { ImageResponse } from 'next/og';
+
+export async function GET() {
+  const fontData = await fetch(
+    new URL('./Inter-Bold.ttf', import.meta.url)
+  ).then((res) => res.arrayBuffer());
+
+  return new ImageResponse(
+    <div style={{ fontFamily: 'Inter' }}>Hello</div>,
+    {
+      width: 1200,
+      height: 630,
+      fonts: [
+        {
+          name: 'Inter',
+          data: fontData,
+          style: 'normal',
+          weight: 700,
+        },
+      ],
+    },
+  );
+}
+```
+
+**Note**: Takumi comes pre-bundled with Geist and Geist Mono fonts (weights 100-900), so you don't need to load fonts manually.
+
+### Images in Template
+
+Embed images in your template:
+
+```tsx
+export function Template() {
+  return (
+    <div style={{ display: 'flex' }}>
+      <img
+        src="https://example.com/logo.png"
+        width={100}
+        height={100}
+      />
+      <h1>Title</h1>
+    </div>
+  );
+}
+```
+
+## Best Practices
+
+1. **Use recommended dimensions**: 1200x630px is optimal for most platforms
+2. **Keep text readable**: Use large font sizes (48px+)
+3. **High contrast**: Ensure text is readable against background
+4. **Test on multiple platforms**: Preview on Twitter, Facebook, LinkedIn
+5. **Optimize file size**: Use WebP format with Takumi for smaller files
+6. **Cache aggressively**: Set `revalidate = false` for static content
+7. **Handle missing data**: Provide fallbacks for undefined values
+8. **Use SVG for icons**: Vector graphics scale better
+
+## Debugging
+
+### Verify Image Generation
+
+Test your OG image route:
+
+```bash
+curl http://localhost:3000/og/docs/getting-started/image.png
+```
+
+### Preview in Browser
+
+Visit the image URL directly to see the generated image.
+
+### Social Media Debuggers
+
+- [Facebook Sharing Debugger](https://developers.facebook.com/tools/debug/)
+- [Twitter Card Validator](https://cards-dev.twitter.com/validator)
+- [LinkedIn Post Inspector](https://www.linkedin.com/post-inspector/)
+
+### Check Metadata
+
+Verify Open Graph tags in your page:
+
+```html
+<meta property="og:image" content="https://example.com/og/docs/page/image.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+```
+
+## Performance
+
+### Takumi Benefits
+
+- **Faster generation**: 2-3x faster than next/og
+- **Smaller file size**: WebP format support
+- **Framework agnostic**: Works with any framework
+- **Built-in fonts**: Geist fonts pre-bundled
+
+### Caching
+
+Enable static generation:
+
+```tsx
+export const revalidate = false;
+
+export function generateStaticParams() {
+  return source.getPages().map((page) => ({
+    slug: getPageImage(page).segments,
+  }));
+}
+```
+
+### CDN Optimization
+
+Serve images from CDN:
+
+```tsx
+export async function generateMetadata() {
+  return {
+    openGraph: {
+      images: `https://cdn.example.com/og/docs/${slug}/image.png`,
+    },
+  };
+}
+```
+
+## Resources
+
+- [Next.js Image Generation](https://nextjs.org/docs/app/api-reference/functions/image-response)
+- [Takumi Documentation](https://takumi.kane.tw/docs)
+- [Takumi Templates](https://takumi.kane.tw/docs/templates)
+- [Open Graph Protocol](https://ogp.me/)
+- [Satori Documentation](https://github.com/vercel/satori)

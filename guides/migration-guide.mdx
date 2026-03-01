@@ -1,0 +1,753 @@
+---
+title: Migration Guide
+description: Step-by-step guide to migrating from other documentation frameworks to Fumadocs
+---
+
+Migrate your existing documentation to Fumadocs and take advantage of modern features, better performance, and an improved developer experience.
+
+## Migrating from Other Frameworks
+
+### From Nextra
+
+Nextra and Fumadocs share similar concepts, making migration straightforward:
+
+<Steps>
+
+<Step>
+
+### Install Fumadocs
+
+Replace Nextra with Fumadocs packages:
+
+```bash
+# Remove Nextra
+npm uninstall nextra nextra-theme-docs
+
+# Install Fumadocs
+npm install fumadocs-ui fumadocs-core fumadocs-mdx
+```
+
+</Step>
+
+<Step>
+
+### Update Next.js Configuration
+
+Replace Nextra's Next.js config:
+
+```js title="next.config.mjs" del={1-5} add={7-11}
+import nextra from 'nextra';
+
+const withNextra = nextra({
+  theme: 'nextra-theme-docs',
+});
+
+import createMDX from 'fumadocs-mdx/config';
+
+const withMDX = createMDX();
+
+export default withMDX({
+  // Your Next.js config
+});
+```
+
+</Step>
+
+<Step>
+
+### Create Source Configuration
+
+```ts title="source.config.ts"
+import { defineConfig, defineDocs } from 'fumadocs-mdx/config';
+
+export const docs = defineDocs({
+  dir: 'content/docs', // or 'pages' if using Nextra's default
+});
+
+export default defineConfig();
+```
+
+</Step>
+
+<Step>
+
+### Move Content Files
+
+Move your MDX files from `pages/` to `content/docs/`:
+
+```bash
+mv pages content/docs
+```
+
+Or keep them in `pages/` and update `source.config.ts`:
+
+```ts title="source.config.ts"
+export const docs = defineDocs({
+  dir: 'pages',
+});
+```
+
+</Step>
+
+<Step>
+
+### Update Frontmatter
+
+Convert Nextra frontmatter to Fumadocs format:
+
+```mdx title="content/docs/index.mdx" del={2-3} add={4-5}
+---
+display: hidden
+type: page
+title: Getting Started
+description: Learn how to get started
+---
+```
+
+Common conversions:
+- `display: hidden` → remove (use `meta.json` instead)
+- `type: page` → not needed
+- Nextra uses `_meta.json`, Fumadocs uses `meta.json`
+
+</Step>
+
+<Step>
+
+### Update Meta Files
+
+Rename and convert `_meta.json` to `meta.json`:
+
+```json title="content/docs/guides/meta.json" del={2,5} add={3,6}
+{
+  "installation": "Installation",
+  "title": "Guides",
+  "configuration": "Configuration",
+  "pages": ["installation", "configuration"]
+}
+```
+
+</Step>
+
+<Step>
+
+### Update Component Imports
+
+Replace Nextra components:
+
+```mdx del={1-2} add={4-5}
+import { Callout } from 'nextra/components';
+import { Tabs, Tab } from 'nextra/components';
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+
+<Callout type="warning">
+  This works the same way!
+</Callout>
+
+<Tabs items={['npm', 'pnpm']}>
+  <Tab value="npm">npm install</Tab>
+  <Tab value="pnpm">pnpm install</Tab>
+</Tabs>
+```
+
+</Step>
+
+<Step>
+
+### Set Up Layouts
+
+Replace Nextra's theme with Fumadocs layouts:
+
+```tsx title="app/docs/layout.tsx"
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+import { source } from '@/lib/source';
+import { baseOptions } from '@/lib/layout.shared';
+
+export default function Layout({ children }: LayoutProps<'/docs'>) {
+  return (
+    <DocsLayout tree={source.getPageTree()} {...baseOptions()}>
+      {children}
+    </DocsLayout>
+  );
+}
+```
+
+```tsx title="app/docs/[[...slug]]/page.tsx"
+import { source } from '@/lib/source';
+import { DocsBody, DocsPage, DocsTitle } from 'fumadocs-ui/layouts/docs/page';
+import { notFound } from 'next/navigation';
+import { getMDXComponents } from '@/mdx-components';
+
+export default async function Page(props: PageProps) {
+  const params = await props.params;
+  const page = source.getPage(params.slug);
+  if (!page) notFound();
+
+  const MDX = page.data.body;
+
+  return (
+    <DocsPage toc={page.data.toc}>
+      <DocsTitle>{page.data.title}</DocsTitle>
+      <DocsBody>
+        <MDX components={getMDXComponents()} />
+      </DocsBody>
+    </DocsPage>
+  );
+}
+```
+
+</Step>
+
+<Step>
+
+### Update Search
+
+Replace Nextra's search with Fumadocs search:
+
+```ts title="app/api/search/route.ts"
+import { source } from '@/lib/source';
+import { createFromSource } from 'fumadocs-core/search/server';
+
+export const { GET } = createFromSource(source);
+```
+
+No additional configuration needed - search works out of the box!
+
+</Step>
+
+</Steps>
+
+### From Docusaurus
+
+Migrating from Docusaurus requires more changes due to different architectures:
+
+<Steps>
+
+<Step>
+
+### Create Next.js App
+
+Start with a new Next.js project:
+
+```bash
+npx create-next-app@latest my-docs
+cd my-docs
+npm install fumadocs-ui fumadocs-core fumadocs-mdx
+```
+
+</Step>
+
+<Step>
+
+### Copy Content
+
+Copy your Docusaurus content:
+
+```bash
+cp -r ../old-docs/docs content/docs
+cp -r ../old-docs/blog content/blog
+```
+
+</Step>
+
+<Step>
+
+### Convert Frontmatter
+
+Update Docusaurus frontmatter:
+
+```mdx del={2-4} add={5-7}
+---
+id: intro
+sidebar_label: Introduction
+sidebar_position: 1
+title: Introduction
+description: Get started with our platform
+icon: Book
+---
+```
+
+</Step>
+
+<Step>
+
+### Convert Admonitions
+
+Replace Docusaurus admonitions with Callouts:
+
+```mdx del={1-3} add={5-7}
+:::note
+This is a note
+:::
+
+<Callout type="info">
+  This is a note
+</Callout>
+```
+
+```mdx del={1-3} add={5-7}
+:::warning
+Be careful!
+:::
+
+<Callout type="warn">
+  Be careful!
+</Callout>
+```
+
+</Step>
+
+<Step>
+
+### Convert Code Blocks
+
+Docusaurus code blocks work mostly the same:
+
+```mdx
+```js title="config.js" showLineNumbers
+module.exports = {
+  title: 'My Site',
+};
+```
+```
+
+In Fumadocs:
+
+```mdx
+```js title="config.js"
+module.exports = {
+  title: 'My Site',
+};
+```
+```
+
+</Step>
+
+<Step>
+
+### Migrate sidebars.js
+
+Convert `sidebars.js` to `meta.json` files:
+
+```js title="docusaurus/sidebars.js"
+module.exports = {
+  docs: [
+    'intro',
+    {
+      type: 'category',
+      label: 'Guides',
+      items: ['guides/installation', 'guides/configuration'],
+    },
+  ],
+};
+```
+
+Becomes:
+
+```json title="content/docs/meta.json"
+{
+  "title": "Documentation",
+  "pages": ["intro", "guides"]
+}
+```
+
+```json title="content/docs/guides/meta.json"
+{
+  "title": "Guides",
+  "pages": ["installation", "configuration"]
+}
+```
+
+</Step>
+
+<Step>
+
+### Convert docusaurus.config.js
+
+Translate Docusaurus config to Fumadocs:
+
+```js title="docusaurus.config.js"
+module.exports = {
+  title: 'My Site',
+  url: 'https://mysite.com',
+  themeConfig: {
+    navbar: {
+      title: 'My Site',
+      items: [
+        { to: '/docs/intro', label: 'Docs' },
+        { to: '/blog', label: 'Blog' },
+      ],
+    },
+  },
+};
+```
+
+Becomes:
+
+```tsx title="lib/layout.shared.tsx"
+import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
+
+export function baseOptions(): BaseLayoutProps {
+  return {
+    nav: {
+      title: 'My Site',
+    },
+    links: [
+      { text: 'Docs', url: '/docs' },
+      { text: 'Blog', url: '/blog' },
+    ],
+  };
+}
+```
+
+</Step>
+
+</Steps>
+
+### From VitePress
+
+<Steps>
+
+<Step>
+
+### Set Up Fumadocs
+
+```bash
+npx create-next-app@latest my-docs
+cd my-docs
+npm install fumadocs-ui fumadocs-core fumadocs-mdx
+```
+
+</Step>
+
+<Step>
+
+### Copy Content
+
+```bash
+cp -r ../vitepress-docs/docs content/docs
+```
+
+</Step>
+
+<Step>
+
+### Update Frontmatter
+
+VitePress frontmatter is similar:
+
+```mdx title="content/docs/index.mdx"
+---
+title: Home
+description: Welcome to our docs
+layout: home
+---
+```
+
+Remove VitePress-specific fields like `layout`.
+
+</Step>
+
+<Step>
+
+### Use VitePress Theme
+
+Fumadocs includes a VitePress-inspired theme:
+
+```css title="app/globals.css"
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/vitepress.css';
+@import 'fumadocs-ui/css/preset.css';
+```
+
+</Step>
+
+<Step>
+
+### Convert Custom Containers
+
+Replace VitePress containers:
+
+```mdx del={1-3} add={5-7}
+::: tip
+This is a tip
+:::
+
+<Callout type="info">
+  This is a tip
+</Callout>
+```
+
+</Step>
+
+</Steps>
+
+## Upgrading Fumadocs Versions
+
+### From v14 to v15
+
+Major changes in v15:
+
+<Steps>
+
+<Step>
+
+### Update Dependencies
+
+```bash
+npm install fumadocs-ui@latest fumadocs-core@latest fumadocs-mdx@latest
+```
+
+</Step>
+
+<Step>
+
+### Migrate to Tailwind CSS 4
+
+Fumadocs v15+ requires Tailwind CSS 4:
+
+```bash
+npm install tailwindcss@next @tailwindcss/postcss@next
+```
+
+Update your CSS imports:
+
+```css title="app/globals.css" del={1-3} add={5-7}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+```
+
+</Step>
+
+<Step>
+
+### Update Color Variables
+
+Color variables now use the `@theme` directive:
+
+```css title="app/globals.css" del={1-3} add={5-9}
+:root {
+  --background: hsl(0, 0%, 100%);
+}
+
+@theme {
+  --color-fd-background: hsl(0, 0%, 100%);
+  --color-fd-foreground: hsl(0, 0%, 3.9%);
+  /* ... other colors */
+}
+```
+
+</Step>
+
+<Step>
+
+### Update Search Configuration
+
+Search API moved to `fumadocs-core/search/server`:
+
+```ts title="app/api/search/route.ts" del={1} add={2}
+import { createSearchAPI } from 'fumadocs-core/search';
+import { createFromSource } from 'fumadocs-core/search/server';
+
+export const { GET } = createFromSource(source);
+```
+
+</Step>
+
+</Steps>
+
+### From v13 to v14
+
+<Steps>
+
+<Step>
+
+### Update to Next.js 15
+
+```bash
+npm install next@latest react@latest react-dom@latest
+```
+
+</Step>
+
+<Step>
+
+### Update Page Props
+
+Next.js 15 made `params` and `searchParams` async:
+
+```tsx title="app/docs/[[...slug]]/page.tsx" del={1-2} add={4-5}
+export default function Page(props: PageProps) {
+  const page = source.getPage(props.params.slug);
+
+export default async function Page(props: PageProps) {
+  const params = await props.params;
+  const page = source.getPage(params.slug);
+```
+
+</Step>
+
+<Step>
+
+### Update Metadata Generation
+
+```tsx del={1-2} add={4-5}
+export function generateMetadata(props: PageProps) {
+  const page = source.getPage(props.params.slug);
+
+export async function generateMetadata(props: PageProps) {
+  const params = await props.params;
+  const page = source.getPage(params.slug);
+```
+
+</Step>
+
+</Steps>
+
+### Breaking Changes Log
+
+Refer to the changelog for detailed breaking changes:
+
+#### v16.6.0
+- **Search Results**: Deprecated `contentWithHighlights` field. Highlights now use Markdown format (`<mark>text</mark>`)
+- Update search result rendering if using custom search UI
+
+#### v16.5.0
+- **Shiki Configuration**: New universal Shiki configuration
+- Update code block configuration if customized
+
+#### v16.0.0
+- **Tailwind CSS 4**: Required for all installations
+- **Color System**: Migrated to CSS `@theme` directive
+- **Import Paths**: Some internal imports changed
+
+## Content Migration Tools
+
+### Automated Frontmatter Conversion
+
+Script to convert Nextra frontmatter:
+
+```ts title="scripts/convert-frontmatter.ts"
+import fs from 'fs';
+import path from 'path';
+import matter from 'gray-matter';
+
+function convertFrontmatter(filePath: string) {
+  const content = fs.readFileSync(filePath, 'utf-8');
+  const { data, content: body } = matter(content);
+
+  // Convert Nextra fields
+  const converted = {
+    title: data.title,
+    description: data.description,
+    // Remove Nextra-specific fields
+  };
+
+  const newContent = matter.stringify(body, converted);
+  fs.writeFileSync(filePath, newContent);
+}
+
+// Run on all MDX files
+const docsDir = 'content/docs';
+const files = fs.readdirSync(docsDir, { recursive: true });
+
+for (const file of files) {
+  if (file.endsWith('.mdx')) {
+    convertFrontmatter(path.join(docsDir, file));
+  }
+}
+```
+
+### Batch Component Replacement
+
+Replace old component syntax:
+
+```bash
+# Replace Nextra callouts with Fumadocs callouts
+find content/docs -name "*.mdx" -exec sed -i 's/:::note/
+<Callout type="info">/g' {} +
+find content/docs -name "*.mdx" -exec sed -i 's/:::/
+<\/Callout>/g' {} +
+```
+
+## Checklist
+
+Use this checklist to ensure complete migration:
+
+- [ ] Install Fumadocs packages
+- [ ] Create `source.config.ts`
+- [ ] Move content to `content/docs/`
+- [ ] Update frontmatter in all MDX files
+- [ ] Convert `_meta.json` to `meta.json`
+- [ ] Set up layouts (`app/docs/layout.tsx`)
+- [ ] Create page routes (`app/docs/[[...slug]]/page.tsx`)
+- [ ] Update component imports
+- [ ] Configure search API
+- [ ] Set up MDX components
+- [ ] Add Fumadocs CSS imports
+- [ ] Test all pages render correctly
+- [ ] Verify search functionality
+- [ ] Check dark mode works
+- [ ] Test responsive layouts
+- [ ] Update deployment configuration
+
+## Common Issues
+
+### Import Errors
+
+If you get import errors:
+```
+Module not found: Can't resolve 'fumadocs-ui/mdx'
+```
+
+Ensure all Fumadocs packages are updated:
+```bash
+npm update fumadocs-ui fumadocs-core fumadocs-mdx
+```
+
+### Build Failures
+
+If builds fail with MDX errors:
+- Check that `source.config.ts` points to the correct directory
+- Verify all MDX files have valid frontmatter
+- Ensure `fumadocs-mdx` is in `dependencies`, not `devDependencies`
+
+### Styles Not Loading
+
+If styles don't apply:
+- Verify CSS imports in `global.css`
+- Check Tailwind CSS 4 is installed
+- Ensure `className="flex flex-col min-h-screen"` on `body`
+- Clear `.next` cache: `rm -rf .next`
+
+### Search Not Working
+
+If search doesn't work:
+- Verify search API route exists
+- Check that pages have `structuredData`
+- Ensure search client is configured
+- Test API endpoint directly: `/api/search?query=test`
+
+## Getting Help
+
+If you encounter issues during migration:
+
+1. Check the [official documentation](https://fumadocs.vercel.app)
+2. Search [GitHub issues](https://github.com/fuma-nama/fumadocs/issues)
+3. Ask in [GitHub Discussions](https://github.com/fuma-nama/fumadocs/discussions)
+4. Review [example projects](https://github.com/fuma-nama/fumadocs/tree/main/examples)
+
+## Next Steps
+
+After migrating:
+
+- [Customize your theme](/docs/guides/customizing-theme)
+- [Set up advanced search](/docs/guides/adding-search)
+- [Configure multi-docs](/docs/guides/multi-docs-setup) if needed
+- Explore [deployment options](/docs/framework/deploying)

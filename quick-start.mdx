@@ -1,0 +1,449 @@
+---
+title: Quick Start
+description: Get your Fumadocs documentation site running in under 5 minutes
+icon: Rocket
+---
+
+This guide will help you create a new Fumadocs documentation site from scratch using our CLI tool. You'll go from zero to a fully functional docs site with search, navigation, and beautiful UI in minutes.
+
+<Info>
+  **Prefer to add Fumadocs to an existing project?** Check out the [Installation Guide](/installation) for manual setup instructions.
+</Info>
+
+## Prerequisites
+
+Before you begin, make sure you have:
+
+- **Node.js 22 or higher** installed
+- A package manager: npm, pnpm, yarn, or bun
+- Basic knowledge of React.js (helpful for customization)
+
+<Note>
+  We recommend using **pnpm** for faster installs and better disk space efficiency, but any package manager will work.
+</Note>
+
+## Create Your Project
+
+<Steps>
+
+<Step title="Run the CLI Tool">
+  
+Open your terminal and run the create command with your preferred package manager:
+
+<CodeGroup>
+
+```bash npm
+npm create fumadocs-app
+```
+
+```bash pnpm
+pnpm create fumadocs-app
+```
+
+```bash yarn
+yarn create fumadocs-app
+```
+
+```bash bun
+bun create fumadocs-app
+```
+
+</CodeGroup>
+
+The CLI will guide you through an interactive setup process.
+
+</Step>
+
+<Step title="Choose Your Configuration">
+  
+The CLI will ask you to configure:
+
+**Project Name**
+- Enter a name for your project (e.g., `my-docs`)
+
+**React Framework**
+- **Next.js** (recommended) - Full App Router support, SSG, ISR
+- **Tanstack Start** - Modern React framework with server functions
+- **React Router** - Client-side routing with RSC support
+- **Waku** - Minimal React framework for static sites
+
+**Content Source**
+- **Fumadocs MDX** (recommended) - Local MDX files with full TypeScript support
+- More options available for advanced setups
+
+<Tip>
+  For most users, we recommend **Next.js + Fumadocs MDX**. This combination offers the best performance, developer experience, and feature set.
+</Tip>
+
+</Step>
+
+<Step title="Install Dependencies">
+  
+The CLI will automatically install all required dependencies:
+
+```bash
+cd my-docs
+```
+
+If you need to install manually:
+
+<CodeGroup>
+
+```bash npm
+npm install
+```
+
+```bash pnpm
+pnpm install
+```
+
+```bash yarn
+yarn install
+```
+
+```bash bun
+bun install
+```
+
+</CodeGroup>
+
+</Step>
+
+<Step title="Start the Development Server">
+  
+Run the dev command to start your docs site:
+
+<CodeGroup>
+
+```bash npm
+npm run dev
+```
+
+```bash pnpm
+pnpm dev
+```
+
+```bash yarn
+yarn dev
+```
+
+```bash bun
+bun dev
+```
+
+</CodeGroup>
+
+Your documentation site is now running at **http://localhost:3000/docs**! 🎉
+
+</Step>
+
+</Steps>
+
+## Project Structure
+
+Here's what the CLI created for you:
+
+```
+my-docs/
+├── app/                      # Next.js app directory
+│   ├── layout.tsx           # Root layout with RootProvider
+│   ├── docs/                # Docs routes
+│   │   ├── layout.tsx       # Docs layout with navigation
+│   │   └── [[...slug]]/     # Dynamic catch-all route
+│   │       └── page.tsx     # Page renderer
+│   └── api/
+│       └── search/
+│           └── route.ts     # Search API endpoint
+├── content/
+│   └── docs/                # Your MDX documentation files
+│       ├── index.mdx        # Homepage (example)
+│       └── meta.json        # Navigation metadata
+├── lib/
+│   ├── source.ts            # Content source configuration
+│   └── layout.shared.tsx    # Shared layout options
+├── source.config.ts         # Fumadocs MDX configuration
+├── mdx-components.tsx       # MDX component exports
+└── package.json
+```
+
+<Info>
+  This structure follows Next.js 16 conventions. If you chose a different framework, your structure will vary accordingly.
+</Info>
+
+## Create Your First Page
+
+<Steps>
+
+<Step title="Create an MDX File">
+  
+Create a new file in the `content/docs` directory:
+
+```mdx title="content/docs/getting-started.mdx"
+---
+title: Getting Started
+description: Learn the basics of using our product
+---
+
+## Welcome
+
+This is your first documentation page!
+
+### Features
+
+- Easy to use
+- Fully customizable
+- Built with React
+
+<Note>
+  You can use special components like this Note component!
+</Note>
+```
+
+The frontmatter (content between `---`) defines page metadata:
+- **title**: Page title (shown in navigation and browser tab)
+- **description**: Page description (for SEO)
+- Additional fields like `icon`, `index`, etc.
+
+</Step>
+
+<Step title="View Your Page">
+  
+Visit **http://localhost:3000/docs/getting-started** to see your new page.
+
+Notice how:
+- The page appears in the sidebar navigation automatically
+- The title and description are rendered
+- The URL matches your file name
+
+</Step>
+
+<Step title="Add More Content">
+  
+Fumadocs supports rich content out of the box. Create files with code examples, callouts, and more.
+
+**Syntax Highlighting**: Code blocks are automatically highlighted:
+
+```typescript
+import { loader } from 'fumadocs-core/source';
+
+export const source = loader({
+  baseUrl: '/docs',
+  source: docs.toFumadocsSource(),
+});
+```
+
+**Callouts**: Use callouts to highlight important information:
+
+<Note>
+This is a helpful note for readers.
+</Note>
+
+<Warning>
+Important warnings stand out clearly.
+</Warning>
+
+</Step>
+
+</Steps>
+
+## Understanding the Configuration
+
+### Source Configuration
+
+The `source.config.ts` file configures your content source:
+
+```typescript title="source.config.ts"
+import { defineConfig, defineDocs } from 'fumadocs-mdx/config';
+import { metaSchema, pageSchema } from 'fumadocs-core/source/schema';
+
+export const docs = defineDocs({
+  dir: 'content/docs',        // Where your MDX files live
+  docs: {
+    schema: pageSchema,        // Zod schema for frontmatter validation
+  },
+  meta: {
+    schema: metaSchema,        // Schema for meta.json files
+  },
+});
+
+export default defineConfig({
+  mdxOptions: {
+    // Custom remark/rehype plugins can go here
+  },
+});
+```
+
+### Source Loader
+
+The `lib/source.ts` file creates the content loader:
+
+```typescript title="lib/source.ts"
+import { docs } from 'fumadocs-mdx:collections/server';
+import { loader } from 'fumadocs-core/source';
+import { lucideIconsPlugin } from 'fumadocs-core/source/lucide-icons';
+
+export const source = loader({
+  baseUrl: '/docs',                      // Base URL for all docs pages
+  source: docs.toFumadocsSource(),       // Content source adapter
+  plugins: [lucideIconsPlugin()],        // Add icon support
+});
+```
+
+## Next Steps
+
+Now that you have a working Fumadocs site, here's what to explore next:
+
+<CardGroup cols={2}>
+  <Card 
+    title="Navigation Structure" 
+    icon="sitemap"
+    href="/docs/navigation"
+  >
+    Learn how to organize pages and customize navigation
+  </Card>
+  
+  <Card 
+    title="Components" 
+    icon="puzzle-piece"
+    href="/docs/ui/components"
+  >
+    Discover all available UI components for rich content
+  </Card>
+  
+  <Card 
+    title="Markdown Guide" 
+    icon="markdown"
+    href="/docs/markdown"
+  >
+    Master MDX syntax and advanced features
+  </Card>
+  
+  <Card 
+    title="Search Setup" 
+    icon="search"
+    href="/docs/search"
+  >
+    Configure document search with Orama, Algolia, or custom providers
+  </Card>
+</CardGroup>
+
+## Customization
+
+### Change the Base URL
+
+By default, docs are at `/docs`. To change this:
+
+1. Rename the route folder (e.g., `app/docs` → `app/documentation`)
+2. Update `lib/source.ts`:
+
+```typescript
+export const source = loader({
+  baseUrl: '/documentation', // Updated base URL
+  source: docs.toFumadocsSource(),
+});
+```
+
+### Add a Custom Theme
+
+Fumadocs supports custom color schemes. Edit `global.css`:
+
+```css title="app/global.css"
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';  /* Try: blue.css, green.css, etc. */
+@import 'fumadocs-ui/css/preset.css';
+```
+
+### Install UI Components
+
+Use the Fumadocs CLI to add components to your project:
+
+```bash
+npx fumadocs-cli add accordion
+```
+
+This copies the component source to your project for full customization.
+
+<Tip>
+  Think of this like Shadcn UI—you own the component code and can modify it however you want!
+</Tip>
+
+## Common Issues
+
+<Accordion title="Module not found errors">
+  Make sure you've installed all dependencies:
+  
+  ```bash
+  pnpm install
+  ```
+  
+  For Vite users, you may need to exclude Fumadocs from pre-bundling:
+  
+  ```typescript title="vite.config.ts"
+  export default defineConfig({
+    resolve: {
+      noExternal: ['fumadocs-core', 'fumadocs-ui'],
+    },
+  });
+  ```
+</Accordion>
+
+<Accordion title="Pages not appearing in navigation">
+  Check that:
+  - Your MDX file has valid frontmatter with a `title` field
+  - The file is in the correct directory (`content/docs/`)
+  - The dev server is running (it watches for file changes)
+</Accordion>
+
+<Accordion title="Styles not loading">
+  Ensure you've imported Fumadocs styles in your global CSS:
+  
+  ```css
+  @import 'fumadocs-ui/css/neutral.css';
+  @import 'fumadocs-ui/css/preset.css';
+  ```
+</Accordion>
+
+## Build for Production
+
+When you're ready to deploy:
+
+<CodeGroup>
+
+```bash npm
+npm run build
+```
+
+```bash pnpm
+pnpm build
+```
+
+```bash yarn
+yarn build
+```
+
+```bash bun
+bun build
+```
+
+</CodeGroup>
+
+This creates an optimized production build with:
+- Static HTML for all pages (SSG)
+- Optimized assets and code splitting
+- Search index generation
+
+Deploy the output to any static hosting provider or Node.js server.
+
+<Info>
+  For Next.js, Fumadocs automatically generates static pages using `generateStaticParams`. No additional configuration needed!
+</Info>
+
+## Get Help
+
+Need assistance?
+
+- **GitHub Discussions**: https://github.com/fuma-nama/fumadocs/discussions
+- **Discord Community**: Join our server for real-time help
+- **Documentation**: Search this site for detailed guides
+
+Happy documenting! 📚✨

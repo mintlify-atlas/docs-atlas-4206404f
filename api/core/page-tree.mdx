@@ -1,0 +1,449 @@
+---
+title: Page Tree API
+description: Build and manipulate hierarchical page navigation structures
+---
+
+## Overview
+
+The Page Tree API provides types and utilities for working with hierarchical navigation structures in Fumadocs. Page trees represent the sidebar navigation of your documentation.
+
+## Types
+
+### Root
+
+The root of a page tree.
+
+```typescript
+interface Root {
+  $id?: string;
+  name: ReactNode;
+  children: Node[];
+  fallback?: Root;
+}
+```
+
+<ParamField path="$id" type="string">
+  Unique identifier for the root node
+</ParamField>
+
+<ParamField path="name" type="ReactNode">
+  Display name of the root
+</ParamField>
+
+<ParamField path="children" type="Node[]">
+  Child nodes of the root
+</ParamField>
+
+<ParamField path="fallback" type="Root">
+  Alternative page tree that won't be displayed unless explicitly opened
+</ParamField>
+
+### Node
+
+A node in the page tree can be an Item, Separator, or Folder.
+
+```typescript
+type Node = Item | Separator | Folder;
+```
+
+### Item
+
+Represents a page in the navigation.
+
+```typescript
+interface Item {
+  $id?: string;
+  $ref?: { file: string };
+  type: 'page';
+  name: ReactNode;
+  url: string;
+  external?: boolean;
+  description?: ReactNode;
+  icon?: ReactNode;
+}
+```
+
+<ParamField path="type" type="'page'">
+  Node type discriminator
+</ParamField>
+
+<ParamField path="name" type="ReactNode">
+  Display name of the page
+</ParamField>
+
+<ParamField path="url" type="string">
+  Page URL
+</ParamField>
+
+<ParamField path="external" type="boolean">
+  Whether the link should be treated as external (uses HTML `<a>` tag)
+</ParamField>
+
+<ParamField path="description" type="ReactNode">
+  Page description
+</ParamField>
+
+<ParamField path="icon" type="ReactNode">
+  Icon element for the page
+</ParamField>
+
+### Folder
+
+Represents a collapsible folder in the navigation.
+
+```typescript
+interface Folder {
+  $id?: string;
+  $ref?: { metaFile?: string };
+  type: 'folder';
+  name: ReactNode;
+  description?: ReactNode;
+  root?: boolean;
+  defaultOpen?: boolean;
+  collapsible?: boolean;
+  index?: Item;
+  icon?: ReactNode;
+  children: Node[];
+}
+```
+
+<ParamField path="type" type="'folder'">
+  Node type discriminator
+</ParamField>
+
+<ParamField path="name" type="ReactNode">
+  Display name of the folder
+</ParamField>
+
+<ParamField path="root" type="boolean">
+  Whether this folder is a root folder (affects navigation behavior)
+</ParamField>
+
+<ParamField path="defaultOpen" type="boolean">
+  Whether the folder should be open by default
+</ParamField>
+
+<ParamField path="collapsible" type="boolean">
+  Whether the folder can be collapsed
+</ParamField>
+
+<ParamField path="index" type="Item">
+  Index page for the folder
+</ParamField>
+
+<ParamField path="children" type="Node[]">
+  Child nodes within the folder
+</ParamField>
+
+### Separator
+
+A visual separator in the navigation.
+
+```typescript
+interface Separator {
+  $id?: string;
+  type: 'separator';
+  name?: ReactNode;
+  icon?: ReactNode;
+}
+```
+
+<ParamField path="type" type="'separator'">
+  Node type discriminator
+</ParamField>
+
+<ParamField path="name" type="ReactNode">
+  Optional label for the separator
+</ParamField>
+
+## Utility Functions
+
+### flattenTree()
+
+Flatten a page tree into an array of page nodes.
+
+```typescript
+function flattenTree(nodes: Node[]): Item[];
+```
+
+<ParamField path="nodes" type="Node[]" required>
+  Array of page tree nodes to flatten
+</ParamField>
+
+<ResponseField name="items" type="Item[]">
+  Flattened array of page items
+</ResponseField>
+
+**Example:**
+
+```typescript
+import { flattenTree } from 'fumadocs-core/page-tree';
+
+const pages = flattenTree(tree.children);
+// Returns all pages in order, including folder index pages
+```
+
+### findNeighbour()
+
+Get the previous and next pages for navigation.
+
+```typescript
+function findNeighbour(
+  tree: Root,
+  url: string,
+  options?: {
+    separateRoot?: boolean;
+  }
+): {
+  previous?: Item;
+  next?: Item;
+};
+```
+
+<ParamField path="tree" type="Root" required>
+  The page tree to search
+</ParamField>
+
+<ParamField path="url" type="string" required>
+  URL of the current page
+</ParamField>
+
+<ParamField path="options.separateRoot" type="boolean" default="true">
+  Whether to treat root folders as separate navigation groups
+</ParamField>
+
+<ResponseField name="result" type="object">
+  Object containing:
+  - `previous`: Previous page in navigation order
+  - `next`: Next page in navigation order
+</ResponseField>
+
+**Example:**
+
+```typescript
+import { findNeighbour } from 'fumadocs-core/page-tree';
+
+const { previous, next } = findNeighbour(
+  pageTree,
+  '/docs/getting-started'
+);
+
+// Use for previous/next page buttons
+```
+
+### findPath()
+
+Find the path to a node that matches a condition.
+
+```typescript
+function findPath(
+  nodes: Node[],
+  matcher: (node: Node) => boolean,
+  options?: {
+    includeSeparator?: boolean;
+  }
+): Node[] | null;
+```
+
+<ParamField path="nodes" type="Node[]" required>
+  Array of nodes to search
+</ParamField>
+
+<ParamField path="matcher" type="(node: Node) => boolean" required>
+  Function to match the target node
+</ParamField>
+
+<ParamField path="options.includeSeparator" type="boolean" default="true">
+  Whether to include separators in the path
+</ParamField>
+
+<ResponseField name="path" type="Node[] | null">
+  Array of nodes from root to target, or null if not found
+</ResponseField>
+
+**Example:**
+
+```typescript
+import { findPath } from 'fumadocs-core/page-tree';
+
+const path = findPath(
+  tree.children,
+  (node) => node.type === 'page' && node.url === '/docs/api'
+);
+
+// Returns: [parentFolder, page]
+```
+
+### findParent()
+
+Find the parent of a page by URL.
+
+```typescript
+function findParent(
+  from: Root | Folder,
+  url: string
+): Root | Folder | undefined;
+```
+
+<ParamField path="from" type="Root | Folder" required>
+  Starting point for the search
+</ParamField>
+
+<ParamField path="url" type="string" required>
+  URL of the page to find the parent of
+</ParamField>
+
+<ResponseField name="parent" type="Root | Folder | undefined">
+  The parent node, or undefined if not found
+</ResponseField>
+
+**Example:**
+
+```typescript
+import { findParent } from 'fumadocs-core/page-tree';
+
+const parent = findParent(tree, '/docs/api/reference');
+```
+
+### findSiblings()
+
+Get sibling nodes that share the same parent.
+
+```typescript
+function findSiblings(
+  treeOrTrees: Root | Record<string, Root>,
+  url: string
+): Node[];
+```
+
+<ParamField path="treeOrTrees" type="Root | Record<string, Root>" required>
+  Page tree or trees (for i18n)
+</ParamField>
+
+<ParamField path="url" type="string" required>
+  URL of the reference page
+</ParamField>
+
+<ResponseField name="siblings" type="Node[]">
+  Array of sibling nodes (excluding the target page)
+</ResponseField>
+
+**Example:**
+
+```typescript
+import { findSiblings } from 'fumadocs-core/page-tree';
+
+const siblings = findSiblings(tree, '/docs/api/source');
+// Returns other pages/folders in the same parent folder
+```
+
+### getPageTreePeers()
+
+Get sibling pages (excludes folders and separators).
+
+```typescript
+function getPageTreePeers(
+  treeOrTrees: Root | Record<string, Root>,
+  url: string
+): Item[];
+```
+
+<ParamField path="treeOrTrees" type="Root | Record<string, Root>" required>
+  Page tree or trees (for i18n)
+</ParamField>
+
+<ParamField path="url" type="string" required>
+  URL of the reference page
+</ParamField>
+
+<ResponseField name="peers" type="Item[]">
+  Array of sibling page items only
+</ResponseField>
+
+**Example:**
+
+```typescript
+import { getPageTreePeers } from 'fumadocs-core/page-tree';
+
+const peers = getPageTreePeers(tree, '/docs/api/source');
+// Returns only page items, not folders or separators
+```
+
+### getPageTreeRoots()
+
+Get all root folders from a page tree.
+
+```typescript
+function getPageTreeRoots(
+  pageTree: Root | Folder
+): (Root | Folder)[];
+```
+
+<ParamField path="pageTree" type="Root | Folder" required>
+  Page tree to extract roots from
+</ParamField>
+
+<ResponseField name="roots" type="(Root | Folder)[]">
+  Array of root-level folders
+</ResponseField>
+
+**Example:**
+
+```typescript
+import { getPageTreeRoots } from 'fumadocs-core/page-tree';
+
+const roots = getPageTreeRoots(tree);
+// Returns all folders marked with root: true
+```
+
+### visit()
+
+Perform a depth-first traversal of the page tree.
+
+```typescript
+function visit<Root extends Node | Root>(
+  root: Root,
+  visitor: <T extends Node | Root>(
+    node: T,
+    parent?: Root | Folder
+  ) => 'skip' | 'break' | T | void
+): Root;
+```
+
+<ParamField path="root" type="Node | Root" required>
+  Starting node for traversal
+</ParamField>
+
+<ParamField path="visitor" type="function" required>
+  Callback function for each node. Can return:
+  - `'skip'`: Skip children of current node
+  - `'break'`: Stop traversal
+  - Modified node: Replace current node
+  - `void`: Continue traversal
+</ParamField>
+
+<ResponseField name="result" type="Root">
+  The transformed tree
+</ResponseField>
+
+**Example:**
+
+```typescript
+import { visit } from 'fumadocs-core/page-tree';
+
+// Add a class name to all folders
+const modifiedTree = visit(tree, (node) => {
+  if (node.type === 'folder') {
+    return {
+      ...node,
+      className: 'custom-folder'
+    };
+  }
+});
+
+// Count all pages
+let pageCount = 0;
+visit(tree, (node) => {
+  if (node.type === 'page') pageCount++;
+});
+```

@@ -1,0 +1,149 @@
+---
+title: 'CLI Overview'
+description: 'The official Fumadocs CLI for component installation and project automation'
+icon: 'terminal'
+---
+
+## Introduction
+
+The Fumadocs CLI (`@fumadocs/cli`) is a powerful command-line tool that streamlines the process of working with Fumadocs. It provides commands for installing components from the registry, customizing layouts, generating file trees, and managing your documentation project configuration.
+
+<Info>
+  **Package**: `@fumadocs/cli`
+  
+  **Version**: 1.2.5
+  
+  **Binary**: `fumadocs`
+</Info>
+
+## Installation
+
+Install the Fumadocs CLI as a development dependency in your project:
+
+```bash
+npm install -D @fumadocs/cli
+```
+
+```bash
+pnpm add -D @fumadocs/cli
+```
+
+```bash
+yarn add -D @fumadocs/cli
+```
+
+## Quick Start
+
+Initialize a CLI configuration file in your project:
+
+```bash
+npx fumadocs
+```
+
+This creates a `cli.json` file with sensible defaults based on your project structure.
+
+<Tip>
+  The CLI automatically detects whether your project uses a `src` directory and adjusts the configuration accordingly.
+</Tip>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Component Installation" icon="download">
+    Install pre-built components from the Fumadocs registry with automatic dependency resolution.
+  </Card>
+  
+  <Card title="Layout Customization" icon="paint-brush">
+    Clone and customize Fumadocs UI layouts including Docs, Home, Notebook, and Flux variants.
+  </Card>
+  
+  <Card title="File Tree Generation" icon="folder-tree">
+    Generate file tree components from directory structures for documentation.
+  </Card>
+  
+  <Card title="Multi-Registry Support" icon="server">
+    Access components from multiple registries including local directories and remote URLs.
+  </Card>
+</CardGroup>
+
+## Available Commands
+
+The Fumadocs CLI provides the following commands:
+
+### `fumadocs`
+
+Initialize a new configuration file.
+
+```bash
+npx fumadocs
+```
+
+**Output:**
+```
+Initialized a `./cli.json` config file.
+```
+
+### `fumadocs add`
+
+Install components from the registry.
+
+```bash
+npx fumadocs add [components...]
+```
+
+### `fumadocs customise`
+
+Customize Fumadocs UI layouts interactively.
+
+```bash
+npx fumadocs customise
+```
+
+<Note>
+  Also available as `fumadocs customize` (American spelling).
+</Note>
+
+### `fumadocs tree`
+
+Generate file tree components from directory structures.
+
+```bash
+npx fumadocs tree [path] [output]
+```
+
+## Registry Shortcuts
+
+The CLI supports convenient shortcuts for common registry sources:
+
+| Shortcut | Expands To |
+|----------|------------|
+| `:preview` | `https://preview.fumadocs.dev/registry` |
+| `:dev` | `http://localhost:3000/registry` |
+| (default) | `https://fumadocs.dev/registry` |
+
+**Example:**
+
+```bash
+npx fumadocs add search-algolia --dir :preview
+```
+
+## UI Library Support
+
+Fumadocs CLI supports multiple UI libraries:
+
+- **Radix UI** (default): `fumadocs/radix-ui`
+- **Base UI**: `fumadocs/base-ui`
+
+The CLI automatically fetches components from the appropriate registry based on your configuration.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Commands Reference" icon="list" href="/cli/commands">
+    Detailed documentation for all CLI commands and their options.
+  </Card>
+  
+  <Card title="Configuration" icon="gear" href="/cli/configuration">
+    Learn how to configure the CLI for your project structure.
+  </Card>
+</CardGroup>

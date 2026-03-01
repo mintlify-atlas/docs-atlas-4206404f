@@ -1,0 +1,646 @@
+---
+title: Routing
+description: Understanding URL generation, slug handling, and routing strategies in Fumadocs
+---
+
+## Overview
+
+Fumadocs provides a flexible routing system that generates URLs from file paths, handles internationalization, and supports custom URL patterns. The routing layer sits between your content sources and the final URLs users see.
+
+## URL Generation
+
+URLs are generated from slugs, which are path segments derived from file paths:
+
+```typescript packages/core/src/source/loader.ts
+export function createGetUrl(baseUrl: string, i18n?: I18nConfig) {
+  const baseSlugs = baseUrl.split('/');
+
+  return (slugs: string[], locale?: string) => {
+    const hideLocale = i18n?.hideLocale ?? 'never';
+    let urlLocale: string | undefined;
+
+    if (hideLocale === 'never') {
+      urlLocale = locale;
+    } else if (hideLocale === 'default-locale' && locale !== i18n?.defaultLanguage) {
+      urlLocale = locale;
+    }
+
+    const paths = [...baseSlugs, ...slugs];
+    if (urlLocale) paths.unshift(urlLocale);
+
+    return `/${paths.filter((v) => v.length > 0).join('/')}`;
+  };
+}
+```
+
+### Example
+
+<CodeGroup>
+```typescript File Path
+docs/getting-started/installation.mdx
+```
+
+```typescript Generated Slugs
+['getting-started', 'installation']
+```
+
+```typescript Generated URL
+/docs/getting-started/installation
+```
+</CodeGroup>
+
+## Slug Generation
+
+Slugs are automatically generated from file paths by the slugs plugin:
+
+```typescript packages/core/src/source/plugins/slugs.ts
+const GroupRegex = /^\(.+\)$/;
+
+export function getSlugs(file: string): string[] {
+  const dir = dirname(file);
+  const name = basename(file, extname(file));
+  const slugs: string[] = [];
+
+  for (const seg of dir.split('/')) {
+    // Filter empty names and file groups like (group_name)
+    if (seg.length > 0 && !GroupRegex.test(seg)) {
+      slugs.push(encodeURI(seg));
+    }
+  }
+
+  if (name !== 'index') {
+    slugs.push(encodeURI(name));
+  }
+
+  return slugs;
+}
+```
+
+<Note>
+Slugs are automatically URI-encoded to support non-ASCII characters in URLs.
+</Note>
+
+## File Groups
+
+Wrap directory names in parentheses to exclude them from URLs:
+
+<Tabs>
+  <Tab title="With Groups">
+    ```
+    docs/
+      (getting-started)/
+        introduction.mdx  -> /docs/introduction
+        installation.mdx  -> /docs/installation
+      (guides)/
+        tutorial.mdx      -> /docs/tutorial
+    ```
+    
+    Groups organize files without affecting URLs.
+  </Tab>
+  <Tab title="Without Groups">
+    ```
+    docs/
+      getting-started/
+        introduction.mdx  -> /docs/getting-started/introduction
+        installation.mdx  -> /docs/getting-started/installation
+      guides/
+        tutorial.mdx      -> /docs/guides/tutorial
+    ```
+    
+    Standard nested URLs.
+  </Tab>
+</Tabs>
+
+<Warning>
+File groups can only be used in directory names, not file names. Using groups in file names will throw an error.
+</Warning>
+
+## Index Pages
+
+Files named `index.mdx` map to their parent directory's URL:
+
+```
+docs/
+  index.mdx              -> /docs
+  getting-started/
+    index.mdx            -> /docs/getting-started
+    installation.mdx     -> /docs/getting-started/installation
+```
+
+### Index Slug Conflicts
+
+When both `dir.mdx` and `dir/index.mdx` exist:
+
+```
+docs/
+  api.mdx               -> /docs/api
+  api/
+    index.mdx           -> /docs/api/index (conflict resolved)
+    reference.mdx       -> /docs/api/reference
+```
+
+The plugin automatically appends `/index` to avoid conflicts.
+
+## Custom Slugs
+
+Override automatic slug generation:
+
+### From Frontmatter
+
+```typescript
+import { loader } from 'fumadocs-core/source';
+import { slugsFromData } from 'fumadocs-core/source';
+
+const docs = loader({
+  source: mySource,
+  baseUrl: '/docs',
+  slugs: slugsFromData('slug'), // Read from frontmatter 'slug' field
+});
+```
+
+```mdx page.mdx
+---
+title: Custom URL Page
+slug: custom/url/path
+---
+
+This page will be accessible at `/docs/custom/url/path`
+```
+
+### Custom Function
+
+```typescript
+const docs = loader({
+  source: mySource,
+  baseUrl: '/docs',
+  slugs: (file) => {
+    // Custom logic
+    if (file.data.permalink) {
+      return file.data.permalink.split('/');
+    }
+    
+    // Return undefined to use default behavior
+    return undefined;
+  },
+});
+```
+
+## Base URL
+
+Set a base URL prefix for all pages:
+
+```typescript
+const docs = loader({
+  source: mySource,
+  baseUrl: '/docs',  // All URLs start with /docs
+});
+
+// docs/guide.mdx -> /docs/guide
+```
+
+### Multiple Loaders
+
+Use different base URLs for different content types:
+
+```typescript
+const docs = loader({
+  source: docsSource,
+  baseUrl: '/docs',
+});
+
+const blog = loader({
+  source: blogSource,
+  baseUrl: '/blog',
+});
+```
+
+## Custom URL Function
+
+Completely customize URL generation:
+
+```typescript
+const docs = loader({
+  source: mySource,
+  url: (slugs, locale) => {
+    // Custom URL logic
+    if (locale) {
+      return `/${locale}/${slugs.join('-')}`;
+    }
+    return `/${slugs.join('-')}`;
+  },
+});
+
+// File: docs/getting-started.mdx
+// Slugs: ['getting-started']
+// URL: /getting-started
+```
+
+<Warning>
+Custom URL functions must return normalized URLs (leading slash, no trailing slash).
+</Warning>
+
+## Internationalization
+
+Fumadocs supports three locale visibility modes:
+
+### Never Hide Locale
+
+```typescript
+const docs = loader({
+  source: mySource,
+  baseUrl: '/docs',
+  i18n: {
+    languages: ['en', 'zh', 'ja'],
+    defaultLanguage: 'en',
+    hideLocale: 'never',  // Default
+  },
+});
+
+// en: /en/docs/guide
+// zh: /zh/docs/guide
+// ja: /ja/docs/guide
+```
+
+All URLs include the locale prefix.
+
+### Hide Default Locale
+
+```typescript
+const docs = loader({
+  source: mySource,
+  baseUrl: '/docs',
+  i18n: {
+    languages: ['en', 'zh', 'ja'],
+    defaultLanguage: 'en',
+    hideLocale: 'default-locale',
+  },
+});
+
+// en: /docs/guide (no locale prefix)
+// zh: /zh/docs/guide
+// ja: /ja/docs/guide
+```
+
+Default language URLs omit the locale prefix.
+
+### Always Hide Locale
+
+```typescript
+const docs = loader({
+  source: mySource,
+  baseUrl: '/docs',
+  i18n: {
+    languages: ['en', 'zh'],
+    defaultLanguage: 'en',
+    hideLocale: 'always',
+  },
+});
+
+// All URLs: /docs/guide
+// Locale determined by cookies or Accept-Language header
+```
+
+Locales are handled via middleware, not URLs.
+
+## Middleware for i18n
+
+Use middleware to handle locale routing:
+
+```typescript packages/core/src/i18n/middleware.ts
+import { createI18nMiddleware } from 'fumadocs-core/i18n/middleware';
+
+export default createI18nMiddleware({
+  languages: ['en', 'zh', 'ja'],
+  defaultLanguage: 'en',
+  hideLocale: 'default-locale',
+});
+```
+
+### Middleware Behavior
+
+<Steps>
+  <Step title="Detect Locale">
+    Extract locale from URL path, cookies, or Accept-Language header
+  </Step>
+  <Step title="Validate Locale">
+    Ensure the locale is in the configured languages list
+  </Step>
+  <Step title="Rewrite or Redirect">
+    Rewrite internal URLs or redirect to add/remove locale prefix
+  </Step>
+  <Step title="Set Cookie">
+    Store user's locale preference in cookies
+  </Step>
+</Steps>
+
+### Custom Formatter
+
+```typescript
+const middleware = createI18nMiddleware({
+  languages: ['en', 'zh'],
+  defaultLanguage: 'en',
+  format: {
+    get(url) {
+      // Extract locale from subdomain
+      const host = url.hostname.split('.')[0];
+      return host === 'en' || host === 'zh' ? host : undefined;
+    },
+    add(url, locale) {
+      // Add locale as subdomain
+      const next = new URL(url);
+      next.hostname = `${locale}.${url.hostname}`;
+      return next;
+    },
+    remove(url) {
+      // Remove locale subdomain
+      const next = new URL(url);
+      next.hostname = url.hostname.split('.').slice(1).join('.');
+      return next;
+    },
+  },
+});
+
+// en.example.com/docs/guide
+// zh.example.com/docs/guide
+```
+
+## Locale Parsing
+
+Content sources support two locale parsing strategies:
+
+<Tabs>
+  <Tab title="Directory-based">
+    ```
+    docs/
+      en/
+        getting-started.mdx
+        api.mdx
+      zh/
+        getting-started.mdx
+        api.mdx
+    ```
+    
+    Configure with:
+    ```typescript
+    i18n: {
+      parser: 'dir',  // Default
+      // ...
+    }
+    ```
+  </Tab>
+  <Tab title="Filename-based">
+    ```
+    docs/
+      getting-started.en.mdx
+      getting-started.zh.mdx
+      api.en.mdx
+      api.zh.mdx
+    ```
+    
+    Configure with:
+    ```typescript
+    i18n: {
+      parser: 'dot',
+      // ...
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Path Utilities
+
+Fumadocs provides cross-platform path utilities:
+
+```typescript packages/core/src/source/path.ts
+export function basename(path: string, ext?: string): string {
+  const idx = path.lastIndexOf('/');
+  return path.substring(idx === -1 ? 0 : idx + 1, ext ? path.length - ext.length : path.length);
+}
+
+export function dirname(path: string): string {
+  return path.split('/').slice(0, -1).join('/');
+}
+
+export function joinPath(...paths: string[]): string {
+  const out = [];
+  const parsed = paths.flatMap(splitPath);
+
+  for (const seg of parsed) {
+    switch (seg) {
+      case '..':
+        out.pop();
+        break;
+      case '.':
+        break;
+      default:
+        out.push(seg);
+    }
+  }
+
+  return out.join('/');
+}
+```
+
+<Note>
+These utilities use forward slashes consistently, regardless of the operating system.
+</Note>
+
+## Resolving References
+
+The loader provides methods to resolve links:
+
+### By Href
+
+```typescript packages/core/src/source/loader.ts
+getPageByHref(
+  href: string,
+  options?: {
+    language?: string;
+    dir?: string;  // Virtual path for resolving relative paths
+  }
+): { page: Page; hash?: string } | undefined
+```
+
+Supports:
+- **Relative paths**: `./sibling.mdx`, `../parent.mdx`
+- **Absolute URLs**: `/docs/guide`
+- **Hash fragments**: `./page.mdx#section`
+
+### Resolve Href
+
+```typescript
+resolveHref(href: string, parent: Page): string
+```
+
+Converts relative file paths to absolute URLs:
+
+```typescript
+const page = docs.getPage(['guide']);
+const resolved = docs.resolveHref('./setup.mdx', page);
+// Returns: /docs/setup
+```
+
+## Static Generation
+
+Generate static params for SSG frameworks:
+
+```typescript
+const docs = loader({ /* ... */ });
+
+// Next.js
+export function generateStaticParams() {
+  return docs.generateParams();
+}
+
+// Returns:
+// [
+//   { slug: ['introduction'] },
+//   { slug: ['getting-started', 'installation'] },
+//   { slug: ['api', 'reference'] },
+// ]
+```
+
+### With i18n
+
+```typescript
+export function generateStaticParams() {
+  return docs.generateParams();
+}
+
+// Returns:
+// [
+//   { slug: ['introduction'], lang: 'en' },
+//   { slug: ['introduction'], lang: 'zh' },
+//   { slug: ['installation'], lang: 'en' },
+//   { slug: ['installation'], lang: 'zh' },
+// ]
+```
+
+### Custom Parameter Names
+
+```typescript
+export function generateStaticParams() {
+  return docs.generateParams('path', 'locale');
+}
+
+// Returns:
+// [
+//   { path: ['introduction'], locale: 'en' },
+//   { path: ['introduction'], locale: 'zh' },
+// ]
+```
+
+## URL Normalization
+
+URLs are automatically normalized:
+
+```typescript
+import { normalizeUrl } from 'fumadocs-core/utils/normalize-url';
+
+normalizeUrl('/docs/guide/');     // '/docs/guide'
+normalizeUrl('docs/guide');       // '/docs/guide'
+normalizeUrl('//docs///guide');   // '/docs/guide'
+```
+
+<CardGroup cols={2}>
+  <Card title="Leading slash" icon="slash-forward">
+    Always present
+  </Card>
+  <Card title="Trailing slash" icon="ban">
+    Always removed
+  </Card>
+  <Card title="Multiple slashes" icon="compress">
+    Collapsed to single
+  </Card>
+  <Card title="Empty segments" icon="filter">
+    Filtered out
+  </Card>
+</CardGroup>
+
+## Non-ASCII URLs
+
+Fumadocs properly handles international characters:
+
+```typescript
+// File: docs/安装指南.mdx
+// Slugs: ['%E5%AE%89%E8%A3%85%E6%8C%87%E5%8D%97']
+// URL: /docs/%E5%AE%89%E8%A3%85%E6%8C%87%E5%8D%97
+// Browser displays: /docs/安装指南
+```
+
+The `encodeURI()` function preserves Unicode characters while ensuring URL compatibility.
+
+## Framework Integration
+
+Fumadocs routing works with multiple frameworks:
+
+<Tabs>
+  <Tab title="Next.js App Router">
+    ```typescript app/docs/[[...slug]]/page.tsx
+    import { docs } from '@/lib/source';
+
+    export default async function Page({ params }) {
+      const page = docs.getPage(params.slug);
+      if (!page) notFound();
+
+      return <DocsPage page={page} />;
+    }
+
+    export function generateStaticParams() {
+      return docs.generateParams();
+    }
+    ```
+  </Tab>
+  <Tab title="Next.js Pages Router">
+    ```typescript pages/docs/[...slug].tsx
+    import { docs } from '@/lib/source';
+
+    export async function getStaticPaths() {
+      return {
+        paths: docs.generateParams().map(({ slug }) => ({
+          params: { slug },
+        })),
+        fallback: false,
+      };
+    }
+
+    export async function getStaticProps({ params }) {
+      const page = docs.getPage(params.slug);
+      return { props: { page } };
+    }
+    ```
+  </Tab>
+  <Tab title="React Router">
+    ```typescript routes.tsx
+    import { docs } from '@/lib/source';
+
+    export const routes = [
+      {
+        path: '/docs/*',
+        element: <DocsLayout />,
+        children: docs.getPages().map((page) => ({
+          path: page.url.replace('/docs/', ''),
+          element: <DocsPage page={page} />,
+        })),
+      },
+    ];
+    ```
+  </Tab>
+</Tabs>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="diagram-project" href="/concepts/architecture">
+    Understand the overall system architecture
+  </Card>
+  <Card title="Internationalization" icon="globe" href="/advanced/i18n">
+    Configure multi-language routing
+  </Card>
+  <Card title="Middleware" icon="filter" href="/advanced/middleware">
+    Implement custom routing middleware
+  </Card>
+  <Card title="SEO" icon="magnifying-glass" href="/advanced/seo">
+    Optimize URLs for search engines
+  </Card>
+</CardGroup>

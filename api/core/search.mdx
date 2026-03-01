@@ -1,0 +1,476 @@
+---
+title: Search API
+description: Implement search functionality for your documentation
+---
+
+## Overview
+
+The Search API provides server and client-side search capabilities for Fumadocs. It supports multiple search backends including Orama, Algolia, and custom implementations.
+
+## Server API
+
+### createSearchAPI()
+
+Create a search API endpoint with Orama.
+
+```typescript
+function createSearchAPI<T extends 'simple' | 'advanced'>(
+  type: T,
+  options: T extends 'simple' ? SimpleOptions : AdvancedOptions
+): SearchAPI;
+```
+
+<ParamField path="type" type="'simple' | 'advanced'" required>
+  Search implementation type:
+  - `'simple'`: Basic full-text search
+  - `'advanced'`: Search with structured content and headings
+</ParamField>
+
+<ParamField path="options" type="SimpleOptions | AdvancedOptions" required>
+  Configuration options for the search implementation
+</ParamField>
+
+<ResponseField name="SearchAPI" type="object">
+  Object containing:
+  - `search(query, options?)`: Search function
+  - `export()`: Export search indexes
+  - `GET`: Route handler for search requests
+  - `staticGET`: Route handler for exporting indexes
+</ResponseField>
+
+**Example:**
+
+```typescript
+import { createSearchAPI } from 'fumadocs-core/search/server';
+
+export const { GET } = createSearchAPI('advanced', {
+  indexes: [
+    {
+      id: 'intro',
+      title: 'Introduction',
+      url: '/docs/intro',
+      structuredData: {
+        headings: [
+          { id: 'overview', content: 'Overview', tag: 'h2' }
+        ],
+        contents: [
+          { heading: 'overview', content: 'Getting started...' }
+        ]
+      }
+    }
+  ]
+});
+```
+
+### SimpleOptions
+
+Options for simple search.
+
+```typescript
+interface SimpleOptions {
+  indexes: Index[] | (() => Index[] | Promise<Index[]>);
+  language?: string;
+  tokenizer?: Tokenizer;
+  search?: Partial<SearchParams>;
+  sort?: SortOptions;
+  components?: Components;
+  plugins?: Plugin[];
+}
+```
+
+<ParamField path="indexes" type="Index[] | Dynamic<Index>" required>
+  Array of search indexes or function that returns indexes
+</ParamField>
+
+<ParamField path="language" type="string">
+  Language for search (affects tokenization and stemming)
+</ParamField>
+
+<ParamField path="search" type="SearchParams">
+  Custom search parameters passed to Orama
+</ParamField>
+
+### AdvancedOptions
+
+Options for advanced search with structured content.
+
+```typescript
+interface AdvancedOptions {
+  indexes: AdvancedIndex[] | (() => AdvancedIndex[] | Promise<AdvancedIndex[]>);
+  language?: string;
+  tokenizer?: Tokenizer;
+  search?: Partial<SearchParams>;
+  sort?: SortOptions;
+  components?: Components;
+  plugins?: Plugin[];
+}
+```
+
+<ParamField path="indexes" type="AdvancedIndex[] | Dynamic<AdvancedIndex>" required>
+  Array of advanced search indexes with structured data
+</ParamField>
+
+### Index
+
+Simple search index structure.
+
+```typescript
+interface Index {
+  title: string;
+  description?: string;
+  breadcrumbs?: string[];
+  content: string;
+  url: string;
+  keywords?: string;
+}
+```
+
+<ParamField path="title" type="string" required>
+  Page title
+</ParamField>
+
+<ParamField path="content" type="string" required>
+  Searchable content
+</ParamField>
+
+<ParamField path="url" type="string" required>
+  Page URL
+</ParamField>
+
+<ParamField path="description" type="string">
+  Page description
+</ParamField>
+
+<ParamField path="breadcrumbs" type="string[]">
+  Navigation breadcrumbs
+</ParamField>
+
+<ParamField path="keywords" type="string">
+  Additional keywords for search
+</ParamField>
+
+### AdvancedIndex
+
+Advanced search index with structured content.
+
+```typescript
+interface AdvancedIndex {
+  id: string;
+  title: string;
+  description?: string;
+  breadcrumbs?: string[];
+  tag?: string | string[];
+  structuredData: StructuredData;
+  url: string;
+}
+```
+
+<ParamField path="id" type="string" required>
+  Unique identifier for the page
+</ParamField>
+
+<ParamField path="title" type="string" required>
+  Page title
+</ParamField>
+
+<ParamField path="structuredData" type="StructuredData" required>
+  Preprocessed MDX content with headings and sections
+</ParamField>
+
+<ParamField path="url" type="string" required>
+  Page URL
+</ParamField>
+
+<ParamField path="tag" type="string | string[]">
+  Tags for filtering search results
+</ParamField>
+
+### createFromSource()
+
+Create a search API directly from a loader source.
+
+```typescript
+function createFromSource<C extends LoaderConfig>(
+  source: LoaderOutput<C>,
+  options?: {
+    localeMap?: Record<string, Language>;
+    buildIndex?: (page: Page) => Awaitable<AdvancedIndex>;
+  } & Omit<AdvancedOptions, 'indexes'>
+): SearchAPI;
+```
+
+<ParamField path="source" type="LoaderOutput" required>
+  Output from the loader function
+</ParamField>
+
+<ParamField path="options.buildIndex" type="function">
+  Custom function to build search index from page data
+</ParamField>
+
+<ParamField path="options.localeMap" type="Record<string, Language>">
+  Map language codes to Orama language settings
+</ParamField>
+
+<ResponseField name="SearchAPI" type="SearchAPI">
+  Search API instance with route handlers
+</ResponseField>
+
+**Example:**
+
+```typescript
+import { createFromSource } from 'fumadocs-core/search/server';
+import { source } from './source';
+
+export const { GET } = createFromSource(source);
+```
+
+### createI18nSearchAPI()
+
+Create a search API with internationalization support.
+
+```typescript
+function createI18nSearchAPI(
+  type: 'simple' | 'advanced',
+  options: {
+    i18n: I18nConfig;
+    indexes: (Index & { locale: string })[] | Dynamic<Index & { locale: string }>;
+    localeMap?: Record<string, Language>;
+  } & (SimpleOptions | AdvancedOptions)
+): SearchAPI;
+```
+
+<ParamField path="type" type="'simple' | 'advanced'" required>
+  Search implementation type
+</ParamField>
+
+<ParamField path="options.i18n" type="I18nConfig" required>
+  Internationalization configuration
+</ParamField>
+
+<ParamField path="options.indexes" type="Array" required>
+  Indexes with locale property
+</ParamField>
+
+<ParamField path="options.localeMap" type="Record<string, Language>">
+  Map locale codes to Orama languages
+</ParamField>
+
+**Example:**
+
+```typescript
+import { createI18nSearchAPI } from 'fumadocs-core/search/server';
+
+export const { GET } = createI18nSearchAPI('advanced', {
+  i18n: { languages: ['en', 'zh'], defaultLanguage: 'en' },
+  indexes: [
+    {
+      locale: 'en',
+      id: 'intro-en',
+      title: 'Introduction',
+      url: '/en/docs/intro',
+      structuredData: { /* ... */ }
+    },
+    {
+      locale: 'zh',
+      id: 'intro-zh',
+      title: '介绍',
+      url: '/zh/docs/intro',
+      structuredData: { /* ... */ }
+    }
+  ]
+});
+```
+
+## Client API
+
+### useDocsSearch()
+
+React hook for search functionality.
+
+```typescript
+function useDocsSearch(
+  clientOptions: Client & {
+    delayMs?: number;
+    allowEmpty?: boolean;
+  },
+  deps?: DependencyList
+): UseDocsSearch;
+
+interface UseDocsSearch {
+  search: string;
+  setSearch: (v: string) => void;
+  query: {
+    isLoading: boolean;
+    data?: SortedResult[] | 'empty';
+    error?: Error;
+  };
+}
+```
+
+<ParamField path="clientOptions" type="Client" required>
+  Search client configuration (see Client types)
+</ParamField>
+
+<ParamField path="clientOptions.delayMs" type="number" default="100">
+  Debounce delay for search requests (in milliseconds)
+</ParamField>
+
+<ParamField path="clientOptions.allowEmpty" type="boolean" default="false">
+  Perform search even when query is empty
+</ParamField>
+
+<ParamField path="deps" type="DependencyList">
+  Dependency array for re-querying (like useEffect)
+</ParamField>
+
+<ResponseField name="UseDocsSearch" type="object">
+  Object containing:
+  - `search`: Current search query string
+  - `setSearch`: Function to update search query
+  - `query.isLoading`: Whether search is in progress
+  - `query.data`: Search results or 'empty'
+  - `query.error`: Error if search failed
+</ResponseField>
+
+**Example:**
+
+```typescript
+import { useDocsSearch } from 'fumadocs-core/search/client';
+
+function SearchDialog() {
+  const { search, setSearch, query } = useDocsSearch({
+    type: 'fetch',
+    api: '/api/search'
+  });
+
+  return (
+    <div>
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search docs..."
+      />
+      {query.isLoading && <div>Searching...</div>}
+      {query.data && query.data !== 'empty' && (
+        <div>
+          {query.data.map((result) => (
+            <a key={result.id} href={result.url}>
+              {result.content}
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### Client Types
+
+Supported search client configurations.
+
+```typescript
+type Client =
+  | { type: 'fetch'; api: string; }
+  | { type: 'static'; db: RawData; }
+  | { type: 'algolia'; appId: string; apiKey: string; indexName: string; }
+  | { type: 'orama-cloud'; endpoint: string; apiKey: string; }
+  | { type: 'orama-cloud-legacy'; cloudConfig: CloudConfig; }
+  | { type: 'mixedbread'; apiKey: string; endpoint: string; };
+```
+
+<ParamField path="type='fetch'">
+  Fetch search results from an API endpoint
+  - `api`: API endpoint URL
+</ParamField>
+
+<ParamField path="type='static'">
+  Use a static exported database for client-side search
+  - `db`: Exported Orama database
+</ParamField>
+
+<ParamField path="type='algolia'">
+  Use Algolia for search
+  - `appId`: Algolia application ID
+  - `apiKey`: Algolia search API key
+  - `indexName`: Index name
+</ParamField>
+
+<ParamField path="type='orama-cloud'">
+  Use Orama Cloud for search
+  - `endpoint`: Orama Cloud endpoint
+  - `apiKey`: Orama Cloud API key
+</ParamField>
+
+### SortedResult
+
+Search result structure.
+
+```typescript
+interface SortedResult {
+  id: string;
+  url: string;
+  type: 'page' | 'heading' | 'text';
+  content: string;
+  breadcrumbs?: string[];
+}
+```
+
+<ParamField path="id" type="string">
+  Unique result identifier
+</ParamField>
+
+<ParamField path="url" type="string">
+  Result URL (may include hash for headings)
+</ParamField>
+
+<ParamField path="type" type="'page' | 'heading' | 'text'">
+  Result type
+</ParamField>
+
+<ParamField path="content" type="string">
+  Result content with search term highlights (using `<mark>` tags)
+</ParamField>
+
+<ParamField path="breadcrumbs" type="string[]">
+  Navigation breadcrumbs for the result
+</ParamField>
+
+### createContentHighlighter()
+
+Create a highlighter for search results.
+
+```typescript
+function createContentHighlighter(query: string | RegExp): {
+  highlight(content: string): HighlightedText[];
+  highlightMarkdown(content: string): string;
+};
+
+interface HighlightedText {
+  type: 'text';
+  content: string;
+  styles?: { highlight?: boolean };
+}
+```
+
+<ParamField path="query" type="string | RegExp" required>
+  Search query or regex pattern
+</ParamField>
+
+<ResponseField name="highlighter" type="object">
+  Object with methods:
+  - `highlight(content)`: Returns array of text segments with highlight flags
+  - `highlightMarkdown(content)`: Returns markdown with `<mark>` tags
+</ResponseField>
+
+**Example:**
+
+```typescript
+import { createContentHighlighter } from 'fumadocs-core/search';
+
+const highlighter = createContentHighlighter('react');
+const highlighted = highlighter.highlightMarkdown(
+  'Learn React with our guide'
+);
+// => 'Learn <mark>React</mark> with our guide'
+```

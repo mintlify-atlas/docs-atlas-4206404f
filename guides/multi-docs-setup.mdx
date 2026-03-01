@@ -1,0 +1,737 @@
+---
+title: Setting Up Multiple Documentation Sites
+description: Learn how to organize multiple documentation sets with tabs, internationalization, and separate navigation
+---
+
+Fumadocs supports hosting multiple documentation sets in a single project, perfect for documenting different products, API versions, or language variants.
+
+## Use Cases
+
+- **Multiple Products**: Separate docs for different products or services
+- **Versioning**: Document different versions of your API or library
+- **Internationalization**: Provide docs in multiple languages
+- **Audience Segmentation**: Different docs for developers, end-users, and administrators
+
+## Basic Multi-Docs Setup
+
+<Steps>
+
+<Step>
+
+### Organize Content Structure
+
+Create separate directories for each documentation set:
+
+```
+content/docs/
+├── framework/         # Framework documentation
+│   ├── index.mdx
+│   ├── getting-started.mdx
+│   └── guides/
+├── ui/               # UI documentation
+│   ├── index.mdx
+│   ├── components/
+│   └── themes.mdx
+└── api/              # API documentation
+    ├── index.mdx
+    └── reference/
+```
+
+</Step>
+
+<Step>
+
+### Configure Multiple Sources
+
+Define multiple documentation sources in `source.config.ts`:
+
+```ts title="source.config.ts"
+import { defineConfig, defineDocs } from 'fumadocs-mdx/config';
+
+export const framework = defineDocs({
+  dir: 'content/docs/framework',
+});
+
+export const ui = defineDocs({
+  dir: 'content/docs/ui',
+});
+
+export const api = defineDocs({
+  dir: 'content/docs/api',
+});
+
+export default defineConfig();
+```
+
+</Step>
+
+<Step>
+
+### Create Source Loaders
+
+Create separate loaders for each documentation set:
+
+```ts title="lib/source.ts"
+import { loader } from 'fumadocs-core/source';
+import { framework, ui, api } from 'fumadocs-mdx:collections/server';
+
+export const frameworkSource = loader({
+  baseUrl: '/docs/framework',
+  source: framework.toFumadocsSource(),
+});
+
+export const uiSource = loader({
+  baseUrl: '/docs/ui',
+  source: ui.toFumadocsSource(),
+});
+
+export const apiSource = loader({
+  baseUrl: '/docs/api',
+  source: api.toFumadocsSource(),
+});
+```
+
+</Step>
+
+<Step>
+
+### Set Up Routes for Each Docs
+
+Create separate route groups for each documentation set:
+
+```tsx title="app/docs/framework/[[...slug]]/page.tsx"
+import { frameworkSource } from '@/lib/source';
+import { DocsBody, DocsPage, DocsTitle } from 'fumadocs-ui/layouts/docs/page';
+import { notFound } from 'next/navigation';
+import { getMDXComponents } from '@/mdx-components';
+
+export default async function Page(props: PageProps) {
+  const params = await props.params;
+  const page = frameworkSource.getPage(params.slug);
+  if (!page) notFound();
+
+  const MDX = page.data.body;
+
+  return (
+    <DocsPage toc={page.data.toc}>
+      <DocsTitle>{page.data.title}</DocsTitle>
+      <DocsBody>
+        <MDX components={getMDXComponents()} />
+      </DocsBody>
+    </DocsPage>
+  );
+}
+
+export function generateStaticParams() {
+  return frameworkSource.generateParams();
+}
+```
+
+Repeat for UI and API docs with their respective sources.
+
+</Step>
+
+</Steps>
+
+## Sidebar Tabs Navigation
+
+Use sidebar tabs to switch between documentation sets:
+
+<Steps>
+
+<Step>
+
+### Create Unified Source
+
+Combine sources into a single loader with metadata:
+
+```ts title="lib/source.ts"
+import { loader } from 'fumadocs-core/source';
+import { framework, ui, api } from 'fumadocs-mdx:collections/server';
+import { BookIcon, PaletteIcon, CodeIcon } from 'lucide-react';
+
+export const source = loader({
+  baseUrl: '/docs',
+  source: [
+    framework.toFumadocsSource(),
+    ui.toFumadocsSource(),
+    api.toFumadocsSource(),
+  ],
+});
+
+export const tabs = [
+  {
+    title: 'Framework',
+    url: '/docs/framework',
+    icon: <BookIcon />,
+    description: 'Build documentation sites',
+  },
+  {
+    title: 'UI',
+    url: '/docs/ui',
+    icon: <PaletteIcon />,
+    description: 'UI components and themes',
+  },
+  {
+    title: 'API',
+    url: '/docs/api',
+    icon: <CodeIcon />,
+    description: 'API reference',
+  },
+];
+```
+
+</Step>
+
+<Step>
+
+### Configure Tabs in Layout
+
+Add tabs to your docs layout:
+
+```tsx title="app/docs/layout.tsx"
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+import { source, tabs } from '@/lib/source';
+import { baseOptions } from '@/lib/layout.shared';
+
+export default function Layout({ children }: LayoutProps<'/docs'>) {
+  return (
+    <DocsLayout
+      tree={source.getPageTree()}
+      {...baseOptions()}
+      sidebar={{
+        tabs: {
+          items: tabs,
+        },
+      }}
+    >
+      {children}
+    </DocsLayout>
+  );
+}
+```
+
+</Step>
+
+<Step>
+
+### Add Root Folders
+
+Create root-level folders with metadata in your content:
+
+```mdx title="content/docs/framework/index.mdx"
+---
+title: Framework
+icon: Book
+root: true
+---
+
+Framework documentation.
+```
+
+```mdx title="content/docs/ui/index.mdx"
+---
+title: UI
+icon: Palette
+root: true
+---
+
+UI components documentation.
+```
+
+</Step>
+
+<Step>
+
+### Customize Tab Appearance
+
+Customize how tabs are rendered:
+
+```tsx title="app/docs/layout.tsx"
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+import { source, tabs } from '@/lib/source';
+
+export default function Layout({ children }: LayoutProps<'/docs'>) {
+  return (
+    <DocsLayout
+      tree={source.getPageTree()}
+      sidebar={{
+        tabs: {
+          items: tabs,
+          transform(option, node) {
+            const meta = source.getNodeMeta(node);
+            if (!meta?.icon) return option;
+
+            return {
+              ...option,
+              icon: (
+                <div className="rounded-lg p-1.5 bg-fd-primary/10">
+                  {node.icon}
+                </div>
+              ),
+            };
+          },
+        },
+      }}
+    >
+      {children}
+    </DocsLayout>
+  );
+}
+```
+
+</Step>
+
+</Steps>
+
+## Internationalization (i18n)
+
+Support multiple languages with built-in i18n features:
+
+<Steps>
+
+<Step>
+
+### Define i18n Configuration
+
+Create an i18n configuration:
+
+```ts title="lib/i18n.ts"
+import { defineI18n } from 'fumadocs-core/i18n';
+
+export const i18n = defineI18n({
+  defaultLanguage: 'en',
+  languages: ['en', 'es', 'fr', 'de'],
+});
+```
+
+Supported options:
+- `defaultLanguage`: Default language code
+- `languages`: Array of supported language codes
+
+</Step>
+
+<Step>
+
+### Organize Localized Content
+
+Organize content by language:
+
+```
+content/docs/
+├── en/              # English
+│   ├── index.mdx
+│   └── guides/
+├── es/              # Spanish
+│   ├── index.mdx
+│   └── guides/
+├── fr/              # French
+│   ├── index.mdx
+│   └── guides/
+└── de/              # German
+    ├── index.mdx
+    └── guides/
+```
+
+</Step>
+
+<Step>
+
+### Configure i18n Source
+
+Create a source with i18n support:
+
+```ts title="lib/source.ts"
+import { loader } from 'fumadocs-core/source';
+import { i18n } from '@/lib/i18n';
+import { docs } from 'fumadocs-mdx:collections/server';
+
+export const source = loader({
+  baseUrl: '/docs',
+  source: docs.toFumadocsSource(),
+  i18n,
+});
+```
+
+</Step>
+
+<Step>
+
+### Set Up i18n Routes
+
+Create dynamic routes for each language:
+
+```tsx title="app/[lang]/docs/[[...slug]]/page.tsx"
+import { source } from '@/lib/source';
+import { DocsBody, DocsPage, DocsTitle } from 'fumadocs-ui/layouts/docs/page';
+import { notFound } from 'next/navigation';
+import { getMDXComponents } from '@/mdx-components';
+
+export default async function Page(props: PageProps) {
+  const params = await props.params;
+  const page = source.getPage(params.slug, params.lang);
+  if (!page) notFound();
+
+  const MDX = page.data.body;
+
+  return (
+    <DocsPage toc={page.data.toc}>
+      <DocsTitle>{page.data.title}</DocsTitle>
+      <DocsBody>
+        <MDX components={getMDXComponents()} />
+      </DocsBody>
+    </DocsPage>
+  );
+}
+
+export function generateStaticParams() {
+  return source.generateParams();
+}
+```
+
+</Step>
+
+<Step>
+
+### Add Language Switcher
+
+Add a language switcher to your layout:
+
+```tsx title="lib/layout.shared.tsx"
+import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
+import { i18n } from '@/lib/i18n';
+import { LanguagesIcon } from 'lucide-react';
+
+export function baseOptions(lang: string): BaseLayoutProps {
+  return {
+    nav: {
+      title: 'My Docs',
+    },
+    i18n: {
+      locale: lang,
+      locales: i18n.languages.map((locale) => ({
+        name: locale.toUpperCase(),
+        locale,
+      })),
+    },
+  };
+}
+```
+
+</Step>
+
+<Step>
+
+### Configure i18n Search
+
+Set up language-specific search:
+
+```ts title="app/api/search/route.ts"
+import { source } from '@/lib/source';
+import { createFromSource } from 'fumadocs-core/search/server';
+import { createTokenizer } from '@orama/tokenizers/mandarin';
+
+const server = createFromSource(source, {
+  localeMap: {
+    en: { language: 'english' },
+    es: { language: 'spanish' },
+    fr: { language: 'french' },
+    de: { language: 'german' },
+    // For Chinese, use tokenizer
+    cn: {
+      language: 'chinese',
+      components: {
+        tokenizer: await createTokenizer(),
+      },
+    },
+  },
+});
+
+export const { GET } = server;
+```
+
+</Step>
+
+</Steps>
+
+## Tag-Based Filtering
+
+Filter content using tags for better organization:
+
+<Steps>
+
+<Step>
+
+### Add Tags to Content
+
+Add tags to your MDX frontmatter:
+
+```mdx title="content/docs/guide.mdx"
+---
+title: Getting Started
+tags: ['beginner', 'setup']
+category: guides
+---
+```
+
+</Step>
+
+<Step>
+
+### Configure Tag-Based Search
+
+Set up tag filtering in search:
+
+```ts title="app/api/search/route.ts"
+import { source } from '@/lib/source';
+import { createFromSource } from 'fumadocs-core/search/server';
+
+const server = createFromSource(source, {
+  buildIndex(page) {
+    return {
+      title: page.data.title,
+      description: page.data.description,
+      url: page.url,
+      id: page.url,
+      structuredData: page.data.structuredData,
+      // Use first segment as tag
+      tag: page.slugs[0],
+    };
+  },
+});
+
+export const { GET } = server;
+```
+
+</Step>
+
+<Step>
+
+### Filter Search by Tag
+
+Use tags to filter search results:
+
+```tsx title="components/search.tsx"
+import { useDocsSearch } from 'fumadocs-core/search/client';
+
+export function SearchDialog({ section }: { section: string }) {
+  const client = useDocsSearch({
+    type: 'fetch',
+    tag: section, // Only search this section
+  });
+  
+  // Use with search UI
+}
+```
+
+</Step>
+
+</Steps>
+
+## Separate Navigation per Docs
+
+Customize navigation for each documentation set:
+
+```tsx title="app/docs/framework/layout.tsx"
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+import { frameworkSource } from '@/lib/source';
+import { BookIcon } from 'lucide-react';
+
+export default function Layout({ children }: LayoutProps) {
+  return (
+    <DocsLayout
+      tree={frameworkSource.getPageTree()}
+      nav={{
+        title: (
+          <>
+            <BookIcon className="size-5" />
+            <span>Framework Docs</span>
+          </>
+        ),
+      }}
+      sidebar={{
+        banner: (
+          <div className="p-4 bg-blue-500/10 rounded-lg">
+            <p className="text-sm font-medium">Framework Documentation</p>
+          </div>
+        ),
+      }}
+    >
+      {children}
+    </DocsLayout>
+  );
+}
+```
+
+## Version Management
+
+Manage multiple versions of documentation:
+
+<Steps>
+
+<Step>
+
+### Organize Versioned Content
+
+```
+content/docs/
+├── v1/
+│   ├── index.mdx
+│   └── api/
+├── v2/
+│   ├── index.mdx
+│   └── api/
+└── v3/
+    ├── index.mdx
+    └── api/
+```
+
+</Step>
+
+<Step>
+
+### Create Version Selector
+
+```tsx title="components/version-selector.tsx"
+'use client';
+
+import { usePathname } from 'next/navigation';
+import Link from 'next/link';
+
+const versions = ['v3', 'v2', 'v1'];
+
+export function VersionSelector() {
+  const pathname = usePathname();
+  const currentVersion = pathname.split('/')[2];
+
+  return (
+    <select
+      value={currentVersion}
+      onChange={(e) => {
+        const newPath = pathname.replace(
+          `/${currentVersion}/`,
+          `/${e.target.value}/`
+        );
+        window.location.href = newPath;
+      }}
+      className="px-3 py-1.5 rounded border bg-fd-background"
+    >
+      {versions.map((version) => (
+        <option key={version} value={version}>
+          {version}
+          {version === 'v3' && ' (Latest)'}
+        </option>
+      ))}
+    </select>
+  );
+}
+```
+
+</Step>
+
+<Step>
+
+### Add Version Selector to Layout
+
+```tsx title="app/docs/[version]/layout.tsx"
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+import { VersionSelector } from '@/components/version-selector';
+
+export default function Layout({ children }: LayoutProps) {
+  return (
+    <DocsLayout
+      sidebar={{
+        banner: <VersionSelector />,
+      }}
+    >
+      {children}
+    </DocsLayout>
+  );
+}
+```
+
+</Step>
+
+</Steps>
+
+## Best Practices
+
+1. **Consistent Structure**: Maintain similar file structures across all docs sets
+2. **Shared Components**: Reuse MDX components across documentation sets
+3. **Clear Navigation**: Make it obvious which docs section users are viewing
+4. **Cross-Linking**: Link between related content in different docs
+5. **Search Scoping**: Implement tag-based search to filter by docs section
+6. **Performance**: Consider code splitting for large multi-docs setups
+
+## Common Patterns
+
+### Product + API Docs
+
+```
+content/docs/
+├── product/          # User-facing product docs
+│   ├── getting-started.mdx
+│   └── features/
+└── api/             # Developer API docs
+    ├── authentication.mdx
+    └── endpoints/
+```
+
+### Multi-Version with i18n
+
+```
+content/docs/
+├── v2/
+│   ├── en/
+│   ├── es/
+│   └── fr/
+└── v3/
+    ├── en/
+    ├── es/
+    └── fr/
+```
+
+### Role-Based Docs
+
+```
+content/docs/
+├── developers/       # Technical documentation
+├── administrators/   # Admin guides
+└── end-users/       # User guides
+```
+
+## Troubleshooting
+
+### Routes Conflicting
+
+If routes conflict between docs:
+- Use unique base URLs for each docs set
+- Ensure proper route grouping with folders
+- Check for duplicate slugs across sources
+
+### Search Not Filtering
+
+If tag filtering doesn't work:
+- Verify tags are being set in `buildIndex`
+- Check that the search client receives the tag prop
+- Test the search API endpoint directly
+
+### Tabs Not Showing
+
+If sidebar tabs don't appear:
+- Ensure root pages have `root: true` in frontmatter
+- Verify tab items are configured in layout
+- Check that icons are properly imported
+
+### Language Switching Issues
+
+If language switching fails:
+- Verify i18n configuration includes all languages
+- Check that content exists for each language
+- Ensure routes are properly parameterized with `[lang]`
+
+## Next Steps
+
+- [Migrate existing documentation](/docs/guides/migration-guide) to Fumadocs
+- Learn about [advanced routing patterns](/docs/framework/routing)
+- Explore [deployment options](/docs/framework/deploying) for multi-docs sites

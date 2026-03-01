@@ -1,0 +1,451 @@
+---
+title: Content Collections
+description: Use Fumadocs with Content Collections adapter
+---
+
+The Content Collections adapter allows you to use [Content Collections](https://www.content-collections.dev/) as your content source for Fumadocs. This is useful if you prefer Content Collections' approach to content management.
+
+## Installation
+
+<CodeGroup>
+```bash npm
+npm install @fumadocs/content-collections @content-collections/core @content-collections/mdx fumadocs-core
+```
+
+```bash pnpm
+pnpm add @fumadocs/content-collections @content-collections/core @content-collections/mdx fumadocs-core
+```
+
+```bash yarn
+yarn add @fumadocs/content-collections @content-collections/core @content-collections/mdx fumadocs-core
+```
+</CodeGroup>
+
+## Setup
+
+### 1. Configure Content Collections
+
+Create a `content-collections.ts` file:
+
+```ts title="content-collections.ts"
+import { defineCollection, defineConfig } from '@content-collections/core';
+import {
+  frontmatterSchema,
+  metaSchema,
+  transformMDX,
+} from '@fumadocs/content-collections/configuration';
+
+const docs = defineCollection({
+  name: 'docs',
+  directory: 'content/docs',
+  include: '**/*.mdx',
+  schema: frontmatterSchema,
+  transform: transformMDX,
+});
+
+const metas = defineCollection({
+  name: 'meta',
+  directory: 'content/docs',
+  include: '**/meta.json',
+  parser: 'json',
+  schema: metaSchema,
+});
+
+export default defineConfig({
+  collections: [docs, metas],
+});
+```
+
+### 2. Create Your Source
+
+Create a source file that uses the Content Collections adapter:
+
+```ts title="lib/source.ts"
+import { allDocs, allMetas } from 'content-collections';
+import { loader } from 'fumadocs-core/source';
+import { createMDXSource } from '@fumadocs/content-collections';
+
+export const source = loader({
+  baseUrl: '/docs',
+  source: createMDXSource(allDocs, allMetas),
+});
+```
+
+### 3. Build Integration
+
+Add Content Collections to your build process:
+
+<CodeGroup>
+```ts title="Next.js"
+import { withContentCollections } from '@content-collections/next';
+
+/** @type {import('next').NextConfig} */
+const config = {
+  reactStrictMode: true,
+};
+
+export default withContentCollections(config);
+```
+
+```ts title="Vite"
+import { defineConfig } from 'vite';
+import contentCollections from '@content-collections/vite';
+
+export default defineConfig({
+  plugins: [contentCollections()],
+});
+```
+</CodeGroup>
+
+## Schema Configuration
+
+### Document Schema
+
+Customize the frontmatter schema for your documents:
+
+```ts title="content-collections.ts"
+import { defineCollection } from '@content-collections/core';
+import {
+  frontmatterSchema,
+  transformMDX,
+} from '@fumadocs/content-collections/configuration';
+import { z } from 'zod';
+
+const docs = defineCollection({
+  name: 'docs',
+  directory: 'content/docs',
+  include: '**/*.mdx',
+  schema: frontmatterSchema.extend({
+    author: z.string(),
+    date: z.date(),
+    tags: z.array(z.string()).optional(),
+  }),
+  transform: transformMDX,
+});
+```
+
+The `frontmatterSchema` includes:
+
+```ts
+z.object({
+  title: z.string(),
+  description: z.string().optional(),
+  icon: z.string().optional(),
+  full: z.boolean().optional(),
+  _openapi: z.record(z.string(), z.any()).optional(),
+})
+```
+
+### Meta Schema
+
+Customize the meta.json schema:
+
+```ts title="content-collections.ts"
+import { metaSchema } from '@fumadocs/content-collections/configuration';
+import { z } from 'zod';
+
+const metas = defineCollection({
+  name: 'meta',
+  directory: 'content/docs',
+  include: '**/meta.json',
+  parser: 'json',
+  schema: metaSchema.extend({
+    badge: z.string().optional(),
+  }),
+});
+```
+
+The `metaSchema` includes:
+
+```ts
+z.object({
+  title: z.string().optional(),
+  description: z.string().optional(),
+  pages: z.array(z.string()).optional(),
+  icon: z.string().optional(),
+  root: z.boolean().optional(),
+  defaultOpen: z.boolean().optional(),
+})
+```
+
+## Transform Options
+
+The `transformMDX` function accepts options to customize MDX processing:
+
+```ts title="content-collections.ts"
+import { transformMDX } from '@fumadocs/content-collections/configuration';
+
+const docs = defineCollection({
+  name: 'docs',
+  directory: 'content/docs',
+  include: '**/*.mdx',
+  schema: frontmatterSchema,
+  transform: async (document, context) => {
+    return transformMDX(document, context, {
+      // Remark plugins
+      remarkPlugins: [
+        // Add custom plugins
+      ],
+      
+      // Rehype plugins
+      rehypePlugins: [
+        // Add custom plugins
+      ],
+      
+      // Code highlighting options
+      rehypeCodeOptions: {
+        themes: {
+          light: 'github-light',
+          dark: 'github-dark',
+        },
+      },
+      
+      // Heading options
+      remarkHeadingOptions: {
+        generateToc: true,
+      },
+      
+      // Image options
+      remarkImageOptions: {
+        useImport: false,
+      },
+      
+      // Code tab options
+      remarkCodeTabOptions: {
+        parseMdx: true,
+      },
+      
+      // Generate structured data for search
+      remarkStructureOptions: true,
+    });
+  },
+});
+```
+
+### Plugin Customization
+
+You can customize individual plugins:
+
+<CodeGroup>
+```ts title="Code Highlighting"
+transformMDX(document, context, {
+  rehypeCodeOptions: {
+    themes: {
+      light: 'catppuccin-latte',
+      dark: 'catppuccin-mocha',
+    },
+    inline: 'tailing-curly-colon',
+    transformers: [
+      // Add Shiki transformers
+    ],
+  },
+});
+```
+
+```ts title="Structure Options"
+transformMDX(document, context, {
+  remarkStructureOptions: {
+    stringify: {
+      filterElement(node) {
+        // Custom element filtering
+        return true;
+      },
+    },
+  },
+});
+```
+
+```ts title="Disable Plugins"
+transformMDX(document, context, {
+  // Disable specific plugins
+  rehypeCodeOptions: false,
+  remarkImageOptions: false,
+  remarkCodeTabOptions: false,
+});
+```
+</CodeGroup>
+
+## Output Types
+
+The `transformMDX` function returns:
+
+```ts
+type TransformOutput = {
+  // MDX component
+  body: string;
+  
+  // Table of contents
+  toc: {
+    title: string;
+    url: string;
+    depth: number;
+  }[];
+  
+  // Structured data for search
+  structuredData: {
+    headings: Array<{
+      id: string;
+      content: string;
+    }>;
+    contents: Array<{
+      heading: string;
+      content: string;
+    }>;
+  };
+};
+```
+
+## Using Helper Functions
+
+The adapter provides helper functions for creating schemas:
+
+```ts title="content-collections.ts"
+import {
+  createDocSchema,
+  createMetaSchema,
+} from '@fumadocs/content-collections/configuration';
+import { defineCollection } from '@content-collections/core';
+import { z } from 'zod';
+
+const docs = defineCollection({
+  name: 'docs',
+  directory: 'content/docs',
+  include: '**/*.mdx',
+  schema: (z) => ({
+    ...createDocSchema(z),
+    // Add your custom fields
+    author: z.string(),
+  }),
+});
+
+const metas = defineCollection({
+  name: 'meta',
+  directory: 'content/docs',
+  include: '**/meta.json',
+  parser: 'json',
+  schema: (z) => ({
+    ...createMetaSchema(z),
+    // Add your custom fields
+    badge: z.string().optional(),
+  }),
+});
+```
+
+## Creating the Source
+
+Use `createMDXSource` to convert Content Collections to a Fumadocs source:
+
+```ts title="lib/source.ts"
+import { allDocs, allMetas } from 'content-collections';
+import { createMDXSource } from '@fumadocs/content-collections';
+import { loader } from 'fumadocs-core/source';
+
+export const source = loader({
+  baseUrl: '/docs',
+  source: createMDXSource(allDocs, allMetas),
+});
+```
+
+The `createMDXSource` function expects:
+
+- **First parameter**: Array of document entries with `_meta.filePath`
+- **Second parameter**: Array of meta entries with `_meta.filePath`
+
+## Usage in Your App
+
+Once configured, use the source in your application:
+
+```tsx title="app/docs/[[...slug]]/page.tsx"
+import { source } from '@/lib/source';
+import { notFound } from 'next/navigation';
+
+export default async function Page({ params }) {
+  const page = source.getPage(params.slug);
+  if (!page) notFound();
+  
+  const { body, toc, structuredData } = page.data;
+  
+  return (
+    <div>
+      <h1>{page.data.title}</h1>
+      {body}
+    </div>
+  );
+}
+
+export function generateStaticParams() {
+  return source.generateParams();
+}
+```
+
+## Multiple Collections
+
+You can define multiple documentation collections:
+
+```ts title="content-collections.ts"
+import { defineCollection, defineConfig } from '@content-collections/core';
+import { transformMDX, frontmatterSchema } from '@fumadocs/content-collections/configuration';
+
+const docs = defineCollection({
+  name: 'docs',
+  directory: 'content/docs',
+  include: '**/*.mdx',
+  schema: frontmatterSchema,
+  transform: transformMDX,
+});
+
+const blog = defineCollection({
+  name: 'blog',
+  directory: 'content/blog',
+  include: '**/*.mdx',
+  schema: frontmatterSchema.extend({
+    date: z.date(),
+    author: z.string(),
+  }),
+  transform: transformMDX,
+});
+
+export default defineConfig({
+  collections: [docs, blog],
+});
+```
+
+```ts title="lib/source.ts"
+import { allDocs, allBlog } from 'content-collections';
+import { createMDXSource } from '@fumadocs/content-collections';
+import { loader } from 'fumadocs-core/source';
+
+export const docsSource = loader({
+  baseUrl: '/docs',
+  source: createMDXSource(allDocs, []),
+});
+
+export const blogSource = loader({
+  baseUrl: '/blog',
+  source: createMDXSource(allBlog, []),
+});
+```
+
+## Comparison with Fumadocs MDX
+
+| Feature | Fumadocs MDX | Content Collections |
+|---------|--------------|---------------------|
+| Configuration | `source.config.ts` | `content-collections.ts` |
+| Type Generation | Automatic | Via Content Collections |
+| Build Performance | Optimized for Fumadocs | Content Collections engine |
+| Plugin System | Fumadocs plugins | Content Collections transforms |
+| Hot Reload | Yes | Yes |
+| Async Loading | Built-in | Via transforms |
+| Workspaces | Native support | Manual setup |
+
+## Migration to Fumadocs MDX
+
+If you want to migrate to the native Fumadocs MDX:
+
+1. Create a `source.config.ts` file
+2. Convert your collections to `defineDocs` or `defineCollections`
+3. Update imports from `content-collections` to `fumadocs-mdx:collections/server`
+4. Replace `createMDXSource` with `docs.toFumadocsSource()`
+5. Update your build integration
+
+See the [Fumadocs MDX](/docs/content/fumadocs-mdx) page for details.

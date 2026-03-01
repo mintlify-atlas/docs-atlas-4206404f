@@ -1,0 +1,631 @@
+---
+title: Twoslash Integration
+description: Add TypeScript type information and hover tooltips to code blocks
+---
+
+Fumadocs integrates with Twoslash to display TypeScript type information directly in code blocks, powered by the TypeScript compiler.
+
+## Overview
+
+Twoslash provides:
+
+- **Type Hovering**: Hover over variables to see their types
+- **Inline Errors**: TypeScript errors displayed in code
+- **Query Comments**: Show types with `// ^?` queries
+- **Completions**: Autocomplete suggestions with `// ^|`
+- **Type Highlighting**: Highlight specific tokens
+
+## Installation
+
+Install the Twoslash package:
+
+```bash
+npm install fumadocs-twoslash
+```
+
+## Configuration
+
+### Basic Setup
+
+```ts title="source.config.ts"
+import { defineConfig } from 'fumadocs-mdx/config';
+import { rehypeCode } from 'fumadocs-core/mdx-plugins';
+import { transformerTwoslash } from 'fumadocs-twoslash';
+
+export default defineConfig({
+  mdxOptions: {
+    rehypePlugins: [
+      [rehypeCode, {
+        transformers: [transformerTwoslash()],
+      }],
+    ],
+  },
+});
+```
+
+### Advanced Configuration
+
+```ts
+import { transformerTwoslash } from 'fumadocs-twoslash';
+import type { TransformerTwoslashOptions } from 'fumadocs-twoslash';
+
+const options: TransformerTwoslashOptions = {
+  // Explicit trigger (use 'twoslash' in meta)
+  explicitTrigger: true,
+  
+  // TypeScript compiler options
+  twoslashOptions: {
+    compilerOptions: {
+      strict: true,
+      target: 'ES2022',
+      lib: ['ES2022', 'DOM'],
+    },
+  },
+  
+  // Renderer options
+  rendererRich: {
+    classExtra: 'nd-copy-ignore',
+    queryRendering: 'line',
+  },
+};
+
+rehypePlugins: [
+  [rehypeCode, {
+    transformers: [transformerTwoslash(options)],
+  }],
+]
+```
+
+## Usage
+
+### Enable Twoslash
+
+With `explicitTrigger: true` (recommended), add `twoslash` to the meta string:
+
+```md
+```ts twoslash
+const message: string = 'Hello';
+//    ^?
+```
+```
+
+### Type Queries
+
+Show types with `// ^?`:
+
+```ts twoslash
+const count = 42;
+//    ^?
+
+function greet(name: string) {
+  return `Hello, ${name}`;
+}
+
+const result = greet('World');
+//    ^?
+```
+
+Output shows:
+- `count` has type `number`
+- `result` has type `string`
+
+### Type Errors
+
+TypeScript errors are displayed inline:
+
+```ts twoslash
+// @errors: 2345
+function add(a: number, b: number) {
+  return a + b;
+}
+
+add('1', '2'); // Error: Argument of type 'string' is not assignable to parameter of type 'number'
+```
+
+### Completions
+
+Show autocomplete suggestions with `^|`:
+
+```ts twoslash
+const obj = { foo: 1, bar: 2 };
+obj.
+//  ^|
+```
+
+Displays available properties: `foo`, `bar`, `toString`, `valueOf`, etc.
+
+### Multi-file Setup
+
+Define types in virtual files:
+
+```ts twoslash
+// @filename: types.ts
+export interface User {
+  id: number;
+  name: string;
+}
+
+// @filename: index.ts
+import { User } from './types';
+
+const user: User = {
+  id: 1,
+  name: 'Alice',
+};
+//   ^?
+```
+
+### Compiler Options
+
+Set TypeScript compiler options per block:
+
+```ts twoslash
+// @strict: true
+// @target: ES2022
+
+const value: string | undefined = undefined;
+value.toLowerCase(); // Error in strict mode
+```
+
+## Implementation Details
+
+### Transformer Architecture
+
+From `/packages/twoslash/src/index.ts:27`:
+
+```ts
+export function transformerTwoslash(
+  options: TransformerTwoslashOptions = {},
+): ShikiTransformer {
+  const ignoreClass = 'nd-copy-ignore';
+  
+  // Lazy load Twoslash instance
+  function lazyInstance(): TwoslashInstance {
+    function get() {
+      return (cachedInstance ??= createTwoslasher(options.twoslashOptions));
+    }
+    
+    const wrapper: TwoslashInstance = (...args) => get()(...args);
+    wrapper.getCacheMap = () => get().getCacheMap();
+    return wrapper;
+  }
+  
+  // ...
+}
+```
+
+### Lazy Loading
+
+Twoslash is lazily loaded to work on serverless platforms (from `/packages/twoslash/src/index.ts:31`):
+
+```ts
+function lazyInstance(): TwoslashInstance {
+  function get() {
+    return (cachedInstance ??= createTwoslasher(options.twoslashOptions));
+  }
+  
+  const wrapper: TwoslashInstance = (...args) => get()(...args);
+  wrapper.getCacheMap = () => get().getCacheMap();
+  return wrapper;
+}
+```
+
+### Custom Components
+
+Fumadocs uses custom JSX components for rendering (from `/packages/twoslash/src/index.ts:48`):
+
+```ts
+const renderer = rendererRich({
+  classExtra: ignoreClass,
+  queryRendering: 'line',
+  renderMarkdown,
+  renderMarkdownInline,
+  hast: {
+    hoverToken: {
+      tagName: 'Popup',
+    },
+    hoverPopup: {
+      tagName: 'PopupContent',
+      properties: {
+        class: ignoreClass,
+      },
+    },
+    hoverCompose: ({ popup, token }) => [
+      popup,
+      {
+        type: 'element',
+        tagName: 'PopupTrigger',
+        properties: {},
+        children: [token],
+      },
+    ],
+  },
+});
+```
+
+Components generated:
+- `<Popup>`: Container for hover interactions
+- `<PopupContent>`: The tooltip content
+- `<PopupTrigger>`: The hoverable token
+
+### Markdown Rendering
+
+JSDoc comments are rendered as Markdown (from `/packages/twoslash/src/index.ts:121`):
+
+```ts
+function renderMarkdown(
+  this: ShikiTransformerContextCommon,
+  md: string,
+): ElementContent[] {
+  const mdast = fromMarkdown(
+    md.replace(/{@link (?<link>[^}]*)}/g, '$1'), // replace jsdoc links
+    { mdastExtensions: [gfmFromMarkdown()] },
+  );
+  
+  // Convert to HAST and highlight code blocks
+  return toHast(mdast, {
+    handlers: {
+      code: (state, node: Code) => {
+        if (!node.lang) return defaultHandlers.code(state, node);
+        
+        try {
+          return this.codeToHast(node.value, {
+            ...this.options,
+            transformers: [],
+            meta: { __raw: node.meta ?? undefined },
+            lang: node.lang,
+          }).children[0] as Element;
+        } catch (e) {
+          console.error('Error highlighting code in Twoslash popup');
+          return defaultHandlers.code(state, node);
+        }
+      },
+    },
+  }).children;
+}
+```
+
+## UI Components
+
+Twoslash includes pre-built UI components:
+
+```tsx
+import { Popup, PopupContent, PopupTrigger } from 'fumadocs-twoslash/ui';
+
+export function CodeWithTooltip() {
+  return (
+    <Popup>
+      <PopupTrigger>
+        <code>hover me</code>
+      </PopupTrigger>
+      <PopupContent>
+        <div className="twoslash-popup-docs">
+          Type information here
+        </div>
+      </PopupContent>
+    </Popup>
+  );
+}
+```
+
+## Styling
+
+### Default Styles
+
+Twoslash components use specific class names:
+
+```css
+/* Hover popup */
+.twoslash-popup-docs {
+  /* Documentation content */
+}
+
+.twoslash-popup-docs-tags {
+  /* JSDoc tags */
+}
+
+.twoslash-popup-code {
+  /* Inline code in popups */
+}
+
+/* Highlighted tokens */
+.twoslash-highlighted {
+  background-color: rgba(255, 255, 0, 0.2);
+}
+
+/* Query results */
+.twoslash shiki {
+  /* Shiki syntax highlighting */
+}
+```
+
+### Custom Styles
+
+Configure class names via renderer options:
+
+```ts
+transformerTwoslash({
+  rendererRich: {
+    hast: {
+      popupDocs: {
+        class: 'prose custom-docs',
+      },
+      popupTypes: {
+        class: 'custom-types',
+      },
+      nodesHighlight: {
+        class: 'custom-highlight',
+      },
+    },
+  },
+})
+```
+
+## Advanced Features
+
+### Type Caching
+
+Twoslash caches type information for performance:
+
+```ts
+import { transformerTwoslash } from 'fumadocs-twoslash';
+import type { TwoslashTypesCache } from 'fumadocs-twoslash';
+
+const cache: TwoslashTypesCache = new Map();
+
+transformerTwoslash({
+  twoslashOptions: {
+    cache,
+  },
+})
+```
+
+### File System Cache
+
+Cache to disk for faster rebuilds:
+
+```ts
+import { createFileSystemCache } from 'fumadocs-twoslash/cache-fs';
+
+const cache = createFileSystemCache('.twoslash-cache');
+
+transformerTwoslash({
+  twoslashOptions: {
+    cache,
+  },
+})
+```
+
+### Custom Compiler Options
+
+Per-project TypeScript configuration:
+
+```ts
+transformerTwoslash({
+  twoslashOptions: {
+    compilerOptions: {
+      strict: true,
+      target: 'ES2022',
+      lib: ['ES2022', 'DOM', 'DOM.Iterable'],
+      jsx: 'react-jsx',
+      module: 'ESNext',
+      moduleResolution: 'Bundler',
+    },
+  },
+})
+```
+
+### Virtual File System
+
+Define shared type definitions:
+
+```ts
+transformerTwoslash({
+  twoslashOptions: {
+    vfsRoot: {
+      'types.d.ts': `
+        export interface User {
+          id: number;
+          name: string;
+        }
+      `,
+    },
+  },
+})
+```
+
+## Examples
+
+### React Component Types
+
+```tsx twoslash
+import { type ReactNode } from 'react';
+
+interface ButtonProps {
+  children: ReactNode;
+  onClick: () => void;
+  variant?: 'primary' | 'secondary';
+}
+
+function Button({ children, onClick, variant = 'primary' }: ButtonProps) {
+  return (
+    <button onClick={onClick} className={variant}>
+      {children}
+    </button>
+  );
+}
+
+const element = <Button onClick={() => {}} variant="secondary">Click</Button>;
+//    ^
+```
+
+### Generic Functions
+
+```ts twoslash
+function identity<T>(value: T): T {
+  return value;
+}
+
+const num = identity(42);
+//    ^?
+
+const str = identity('hello');
+//    ^?
+
+const arr = identity([1, 2, 3]);
+//    ^?
+```
+
+### Type Guards
+
+```ts twoslash
+interface Cat {
+  meow(): void;
+}
+
+interface Dog {
+  bark(): void;
+}
+
+type Animal = Cat | Dog;
+
+function isCat(animal: Animal): animal is Cat {
+  return 'meow' in animal;
+}
+
+function handleAnimal(animal: Animal) {
+  if (isCat(animal)) {
+    animal.meow();
+//  ^?
+  } else {
+    animal.bark();
+//  ^?
+  }
+}
+```
+
+### Async/Await
+
+```ts twoslash
+async function fetchUser(id: number) {
+  const response = await fetch(`/api/users/${id}`);
+  const data = await response.json();
+  return data;
+}
+
+const promise = fetchUser(1);
+//    ^?
+
+const user = await fetchUser(1);
+//    ^?
+```
+
+## Troubleshooting
+
+### Lazy Loading Issues
+
+If Twoslash fails with lazy-loaded languages:
+
+```ts
+rehypePlugins: [
+  [rehypeCode, {
+    lazy: false, // Disable lazy loading for Twoslash
+    transformers: [transformerTwoslash()],
+  }],
+]
+```
+
+Or preload languages used in popups:
+
+```ts
+rehypePlugins: [
+  [rehypeCode, {
+    lazy: true,
+    langs: ['js', 'ts', 'tsx', 'json'], // Include languages for popups
+    transformers: [transformerTwoslash()],
+  }],
+]
+```
+
+### TypeScript Errors
+
+If you see incorrect TypeScript errors:
+
+1. Check compiler options match your project
+2. Add `// @errors: <code>` to suppress expected errors
+3. Use `// @ts-expect-error` for known issues
+
+### Performance Issues
+
+Twoslash can slow down builds:
+
+1. Enable explicit trigger: `explicitTrigger: true`
+2. Use file system cache
+3. Limit Twoslash to specific pages
+
+```ts
+// Only enable on docs pages
+if (isDocs) {
+  transformers.push(transformerTwoslash());
+}
+```
+
+## Best Practices
+
+### Use Explicit Trigger
+
+Avoid processing all TypeScript blocks:
+
+```ts
+transformerTwoslash({
+  explicitTrigger: true, // Require 'twoslash' in meta
+})
+```
+
+### Cache Aggressively
+
+Use persistent caching:
+
+```ts
+import { createFileSystemCache } from 'fumadocs-twoslash/cache-fs';
+
+transformerTwoslash({
+  twoslashOptions: {
+    cache: createFileSystemCache('.cache/twoslash'),
+  },
+})
+```
+
+### Simplify Examples
+
+Keep code examples focused:
+
+```ts twoslash
+// ✅ Good: Focused example
+const count: number = 42;
+//    ^?
+
+// ❌ Bad: Too complex for a tooltip
+class ComplexService {
+  // ... 50 lines of code
+}
+```
+
+### Document Types
+
+Use JSDoc for better tooltips:
+
+```ts twoslash
+/**
+ * Calculates the sum of two numbers.
+ * @param a - The first number
+ * @param b - The second number
+ * @returns The sum of a and b
+ */
+function add(a: number, b: number): number {
+  return a + b;
+}
+
+add(1, 2);
+// ^?
+```

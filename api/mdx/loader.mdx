@@ -1,0 +1,363 @@
+---
+title: Loader API
+description: MDX and meta file loaders for bundlers and runtimes
+---
+
+The loader API provides file transformation for MDX and metadata files across different bundler environments.
+
+## createMdxLoader
+
+Creates a loader for transforming MDX files into executable JavaScript.
+
+```ts
+import { createMdxLoader } from 'fumadocs-mdx/loaders/mdx';
+import type { ConfigLoader } from 'fumadocs-mdx/loaders/config';
+
+const mdxLoader = createMdxLoader(configLoader);
+```
+
+<ParamField path="configLoader" type="ConfigLoader" required>
+  Configuration loader instance that provides access to the core system
+</ParamField>
+
+### Returns
+
+<ParamField path="test" type="RegExp">
+  Matches `.md` and `.mdx` files with optional query strings
+</ParamField>
+
+<ParamField path="load" type="(input: LoaderInput) => Promise<LoaderOutput>">
+  Transforms MDX content into JavaScript modules
+</ParamField>
+
+### Query Parameters
+
+The loader accepts query parameters to customize behavior:
+
+<ParamField query="collection" type="string">
+  Name of the collection to use for this file
+</ParamField>
+
+<ParamField query="workspace" type="string">
+  Workspace name for multi-workspace configurations
+</ParamField>
+
+<ParamField query="only" type="'frontmatter' | 'all'" default="'all'">
+  Load only frontmatter or the complete compiled MDX
+</ParamField>
+
+### Example
+
+```ts
+import page from './content/docs/introduction.mdx?collection=docs';
+// Returns compiled MDX component
+
+import { frontmatter } from './content/docs/introduction.mdx?collection=docs&only=frontmatter';
+// Returns only frontmatter data
+```
+
+## createMetaLoader
+
+Creates a loader for JSON and YAML metadata files.
+
+```ts
+import { createMetaLoader } from 'fumadocs-mdx/loaders/meta';
+
+const metaLoader = createMetaLoader(configLoader, {
+  json: 'js',
+  yaml: 'js'
+});
+```
+
+<ParamField path="configLoader" type="ConfigLoader" required>
+  Configuration loader instance
+</ParamField>
+
+<ParamField path="resolve.json" type="'json' | 'js'" default="'js'">
+  Output format for JSON files. Use `'json'` for JSON modules or `'js'` for ES modules
+</ParamField>
+
+<ParamField path="resolve.yaml" type="'js'" default="'js'">
+  Output format for YAML files (always ES modules)
+</ParamField>
+
+### Returns
+
+A `Loader` that parses and validates metadata files.
+
+## Loader Interface
+
+The universal loader interface for different bundler environments.
+
+```ts
+interface Loader {
+  test?: RegExp;
+  load: (input: LoaderInput) => Awaitable<LoaderOutput | null>;
+  bun?: {
+    load?: (source: string, input: LoaderInput) => Awaitable<Bun.OnLoadResult>;
+  };
+}
+```
+
+<ParamField path="test" type="RegExp">
+  Regular expression to filter file paths and URLs
+</ParamField>
+
+<ParamField path="load" type="(input: LoaderInput) => Promise<LoaderOutput | null>">
+  Transform function. Returns `null` to skip transformation
+</ParamField>
+
+<ParamField path="bun.load" type="(source: string, input: LoaderInput) => Promise<Bun.OnLoadResult>">
+  Bun-specific loader for synchronous dynamic imports
+</ParamField>
+
+### LoaderInput
+
+```ts
+interface LoaderInput {
+  development: boolean;
+  compiler: CompilerOptions;
+  filePath: string;
+  query: Record<string, string | string[] | undefined>;
+  getSource: () => string | Promise<string>;
+}
+```
+
+<ParamField path="development" type="boolean">
+  Whether running in development mode
+</ParamField>
+
+<ParamField path="compiler" type="CompilerOptions">
+  Compiler context for tracking dependencies
+</ParamField>
+
+<ParamField path="filePath" type="string">
+  Absolute path to the file being loaded
+</ParamField>
+
+<ParamField path="query" type="Record<string, string | string[]>">
+  Parsed query parameters from the import URL
+</ParamField>
+
+<ParamField path="getSource" type="() => string | Promise<string>">
+  Function to retrieve the file contents
+</ParamField>
+
+### LoaderOutput
+
+```ts
+interface LoaderOutput {
+  code: string;
+  map?: unknown;
+  moduleType?: 'js' | 'json';
+}
+```
+
+<ParamField path="code" type="string" required>
+  The transformed JavaScript or JSON code
+</ParamField>
+
+<ParamField path="map" type="unknown">
+  Source map for the transformation
+</ParamField>
+
+<ParamField path="moduleType" type="'js' | 'json'">
+  Module type hint (supported in Vite 8+)
+</ParamField>
+
+## Adapter Functions
+
+Convert loaders to bundler-specific formats.
+
+### toNode
+
+Convert to Node.js `module.register()` loader.
+
+```ts
+import { toNode } from 'fumadocs-mdx/loaders/adapter';
+import type { LoadHook } from 'node:module';
+
+const nodeLoader: LoadHook = toNode(mdxLoader);
+```
+
+### toVite
+
+Convert to Vite plugin transform hook.
+
+```ts
+import { toVite } from 'fumadocs-mdx/loaders/adapter';
+
+const viteLoader = toVite(mdxLoader);
+
+export default {
+  plugins: [
+    {
+      name: 'fumadocs-mdx',
+      transform: viteLoader.transform,
+    }
+  ]
+};
+```
+
+### toWebpack
+
+Convert to Webpack loader.
+
+```ts
+import { toWebpack } from 'fumadocs-mdx/loaders/adapter';
+
+const webpackLoader = toWebpack(mdxLoader);
+
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.mdx?$/,
+        use: [webpackLoader]
+      }
+    ]
+  }
+};
+```
+
+### toBun
+
+Convert to Bun plugin.
+
+```ts
+import { toBun } from 'fumadocs-mdx/loaders/adapter';
+import type { BunPlugin } from 'bun';
+
+const bunPlugin: BunPlugin = {
+  name: 'fumadocs-mdx',
+  setup(build) {
+    toBun(mdxLoader)(build);
+  }
+};
+```
+
+## ConfigLoader
+
+Provides access to the configuration system.
+
+```ts
+interface ConfigLoader {
+  getCore(): Promise<Core>;
+}
+```
+
+### createStandaloneConfigLoader
+
+Creates a config loader that manages its own lifecycle.
+
+```ts
+import { createStandaloneConfigLoader } from 'fumadocs-mdx/loaders/config';
+
+const configLoader = createStandaloneConfigLoader({
+  core,
+  buildConfig: true,
+  mode: 'production'
+});
+```
+
+<ParamField path="core" type="Core" required>
+  Uninitialized core instance
+</ParamField>
+
+<ParamField path="buildConfig" type="boolean" required>
+  Whether to build the configuration from source
+</ParamField>
+
+<ParamField path="mode" type="'dev' | 'production'" required>
+  Development mode enables config hot-reloading
+</ParamField>
+
+### createIntegratedConfigLoader
+
+Creates a config loader from an already initialized core.
+
+```ts
+import { createIntegratedConfigLoader } from 'fumadocs-mdx/loaders/config';
+
+const configLoader = createIntegratedConfigLoader(core);
+```
+
+<ParamField path="core" type="Core" required>
+  Initialized core instance
+</ParamField>
+
+## Bundler Integrations
+
+### Next.js
+
+```ts
+import { createMDX } from 'fumadocs-mdx/next';
+
+const withMDX = createMDX({
+  configPath: 'source.config.ts',
+  outDir: '.source',
+  index: { target: 'default' }
+});
+
+export default withMDX({
+  // Next.js config
+});
+```
+
+<ParamField path="configPath" type="string" default="'source.config.ts'">
+  Path to configuration file
+</ParamField>
+
+<ParamField path="outDir" type="string" default="'.source'">
+  Output directory for generated files
+</ParamField>
+
+<ParamField path="index" type="IndexFilePluginOptions | false" default="{}">
+  Index file generation options, or `false` to disable
+</ParamField>
+
+### Bun
+
+```ts
+import { createMdxPlugin } from 'fumadocs-mdx/bun';
+
+Bun.plugin(createMdxPlugin({
+  environment: 'bun',
+  configPath: 'source.config.ts',
+  disableMetaFile: false
+}));
+```
+
+<ParamField path="environment" type="string" default="'bun'">
+  Environment identifier
+</ParamField>
+
+<ParamField path="configPath" type="string" default="'source.config.ts'">
+  Path to configuration file
+</ParamField>
+
+<ParamField path="disableMetaFile" type="boolean" default="false">
+  Skip transformation of JSON/YAML metadata files
+</ParamField>
+
+### Node.js
+
+```ts
+import { register } from 'node:module';
+
+register('fumadocs-mdx/node/loader', import.meta.url);
+```
+
+The Node.js loader automatically handles `.mdx` and metadata files using `module.register()`.
+
+## Build Cache
+
+Enable experimental build caching for production builds:
+
+```ts
+export default defineConfig({
+  experimentalBuildCache: '.cache'
+});
+```
+
+The cache stores compiled MDX output keyed by content hash. Delete the cache directory to invalidate.

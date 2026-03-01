@@ -1,0 +1,681 @@
+---
+title: 'CLI Configuration'
+description: 'Configure the Fumadocs CLI for your project structure and preferences'
+icon: 'gear'
+---
+
+## Configuration File
+
+The Fumadocs CLI uses a `cli.json` configuration file to manage paths, aliases, and project settings.
+
+### Location
+
+By default, the CLI looks for `cli.json` in the current directory. You can specify a custom location:
+
+```bash
+npx fumadocs add search --config ./config/fumadocs-cli.json
+```
+
+### Creating a Configuration
+
+Initialize a new configuration file:
+
+```bash
+npx fumadocs
+```
+
+This creates `cli.json` with defaults based on your project structure.
+
+---
+
+## Configuration Schema
+
+The CLI configuration supports the following options:
+
+### `$schema`
+
+**Type**: `string`
+
+**Description**: JSON Schema reference for IDE autocomplete and validation.
+
+**Auto-generated based on project structure:**
+- With `src` directory: `node_modules/@fumadocs/cli/dist/schema/src.json`
+- Without `src` directory: `node_modules/@fumadocs/cli/dist/schema/default.json`
+
+```json
+{
+  "$schema": "node_modules/@fumadocs/cli/dist/schema/default.json"
+}
+```
+
+<Tip>
+  The schema provides autocomplete in editors like VS Code, making configuration easier.
+</Tip>
+
+---
+
+### `baseDir`
+
+**Type**: `string`
+
+**Default**: `""` (root) or `"src"` (if src directory detected)
+
+**Description**: Base directory for your project files. All component paths are resolved relative to this directory.
+
+```json
+{
+  "baseDir": "src"
+}
+```
+
+**Examples:**
+
+<CodeGroup>
+```json Root-level project
+{
+  "baseDir": ""
+}
+
+// Components installed to:
+// ./components/ui/button.tsx
+// ./lib/utils.ts
+```
+
+```json src directory project
+{
+  "baseDir": "src"
+}
+
+// Components installed to:
+// src/components/ui/button.tsx
+// src/lib/utils.ts
+```
+</CodeGroup>
+
+---
+
+### `aliases`
+
+**Type**: `object`
+
+**Description**: Configure where different types of files are installed.
+
+#### `aliases.uiDir`
+
+**Type**: `string`
+
+**Default**: `"./components/ui"`
+
+**Description**: Directory for UI components (e.g., buttons, cards, dialogs).
+
+```json
+{
+  "aliases": {
+    "uiDir": "./components/ui"
+  }
+}
+```
+
+#### `aliases.componentsDir`
+
+**Type**: `string`
+
+**Default**: `"./components"`
+
+**Description**: Directory for regular components and blocks.
+
+```json
+{
+  "aliases": {
+    "componentsDir": "./components"
+  }
+}
+```
+
+#### `aliases.blockDir`
+
+**Type**: `string`
+
+**Default**: `"./components"`
+
+**Description**: Directory for block components (larger, composed components).
+
+```json
+{
+  "aliases": {
+    "blockDir": "./components/blocks"
+  }
+}
+```
+
+#### `aliases.cssDir`
+
+**Type**: `string`
+
+**Default**: `"./styles"`
+
+**Description**: Directory for CSS and style files.
+
+```json
+{
+  "aliases": {
+    "cssDir": "./styles"
+  }
+}
+```
+
+#### `aliases.libDir`
+
+**Type**: `string`
+
+**Default**: `"./lib"`
+
+**Description**: Directory for utility functions and helper libraries.
+
+```json
+{
+  "aliases": {
+    "libDir": "./lib"
+  }
+}
+```
+
+**Complete aliases example:**
+
+```json
+{
+  "aliases": {
+    "uiDir": "./components/ui",
+    "componentsDir": "./components",
+    "blockDir": "./components/blocks",
+    "cssDir": "./app/styles",
+    "libDir": "./utils"
+  }
+}
+```
+
+---
+
+### `uiLibrary`
+
+**Type**: `"radix-ui" | "base-ui"`
+
+**Default**: `"radix-ui"`
+
+**Description**: Which UI component library to use for Fumadocs UI components.
+
+```json
+{
+  "uiLibrary": "radix-ui"
+}
+```
+
+<Tabs>
+  <Tab title="Radix UI">
+    **Registry**: `fumadocs/radix-ui`
+    
+    **Description**: Uses Radix UI primitives for accessible, unstyled components.
+    
+    **Best for**: Projects already using Radix UI or those wanting maximum accessibility.
+    
+    ```json
+    {
+      "uiLibrary": "radix-ui"
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Base UI">
+    **Registry**: `fumadocs/base-ui`
+    
+    **Description**: Uses Base UI (MUI) primitives for component foundations.
+    
+    **Best for**: Projects using Material-UI or those preferring Base UI's architecture.
+    
+    ```json
+    {
+      "uiLibrary": "base-ui"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+### `commands`
+
+**Type**: `object`
+
+**Description**: Configure CLI command behavior and post-processing.
+
+#### `commands.format`
+
+**Type**: `string` (optional)
+
+**Description**: Command to run for formatting generated code automatically after installation.
+
+```json
+{
+  "commands": {
+    "format": "prettier --write"
+  }
+}
+```
+
+**Examples:**
+
+<CodeGroup>
+```json Prettier
+{
+  "commands": {
+    "format": "prettier --write"
+  }
+}
+```
+
+```json ESLint
+{
+  "commands": {
+    "format": "eslint --fix"
+  }
+}
+```
+
+```json Biome
+{
+  "commands": {
+    "format": "biome format --write"
+  }
+}
+```
+
+```json Multiple formatters
+{
+  "commands": {
+    "format": "prettier --write && eslint --fix"
+  }
+}
+```
+</CodeGroup>
+
+<Note>
+  The format command receives the file path as an argument automatically.
+</Note>
+
+---
+
+## Complete Configuration Examples
+
+### Default Configuration
+
+Generated for projects without a `src` directory:
+
+```json cli.json
+{
+  "$schema": "node_modules/@fumadocs/cli/dist/schema/default.json",
+  "aliases": {
+    "uiDir": "./components/ui",
+    "componentsDir": "./components",
+    "blockDir": "./components",
+    "cssDir": "./styles",
+    "libDir": "./lib"
+  },
+  "baseDir": "",
+  "uiLibrary": "radix-ui",
+  "commands": {}
+}
+```
+
+### Source Directory Configuration
+
+Generated for projects with a `src` directory:
+
+```json cli.json
+{
+  "$schema": "node_modules/@fumadocs/cli/dist/schema/src.json",
+  "aliases": {
+    "uiDir": "./components/ui",
+    "componentsDir": "./components",
+    "blockDir": "./components",
+    "cssDir": "./styles",
+    "libDir": "./lib"
+  },
+  "baseDir": "src",
+  "uiLibrary": "radix-ui",
+  "commands": {}
+}
+```
+
+### Custom Configuration
+
+Example with custom paths and formatters:
+
+```json cli.json
+{
+  "$schema": "node_modules/@fumadocs/cli/dist/schema/src.json",
+  "aliases": {
+    "uiDir": "./ui",
+    "componentsDir": "./components",
+    "blockDir": "./blocks",
+    "cssDir": "./app/styles",
+    "libDir": "./utils"
+  },
+  "baseDir": "src",
+  "uiLibrary": "base-ui",
+  "commands": {
+    "format": "biome format --write"
+  }
+}
+```
+
+### Monorepo Configuration
+
+Example for a monorepo package:
+
+```json packages/docs/cli.json
+{
+  "$schema": "../../node_modules/@fumadocs/cli/dist/schema/default.json",
+  "aliases": {
+    "uiDir": "./components/ui",
+    "componentsDir": "./components",
+    "blockDir": "./components/blocks",
+    "cssDir": "./styles",
+    "libDir": "./lib"
+  },
+  "baseDir": "app",
+  "uiLibrary": "radix-ui",
+  "commands": {
+    "format": "pnpm format"
+  }
+}
+```
+
+---
+
+## Path Resolution
+
+### How Paths Work
+
+The CLI resolves component installation paths using this formula:
+
+```
+{baseDir}/{aliasDir}/{componentPath}
+```
+
+**Example:**
+
+```json
+{
+  "baseDir": "src",
+  "aliases": {
+    "uiDir": "./components/ui"
+  }
+}
+```
+
+Installing a `button` component:
+```
+src/components/ui/button.tsx
+```
+
+### Relative vs Absolute Paths
+
+All alias paths should be relative (starting with `./`):
+
+<CodeGroup>
+```json ✅ Correct
+{
+  "aliases": {
+    "uiDir": "./components/ui",
+    "libDir": "./lib"
+  }
+}
+```
+
+```json ❌ Incorrect
+{
+  "aliases": {
+    "uiDir": "components/ui",
+    "libDir": "lib"
+  }
+}
+```
+</CodeGroup>
+
+### Component Type Mapping
+
+Components are installed to different directories based on their type:
+
+| Component Type | Alias | Example |
+|----------------|-------|----------|
+| `ui` | `uiDir` | `components/ui/button.tsx` |
+| `components` | `componentsDir` | `components/search.tsx` |
+| `block` | `blockDir` | `components/hero.tsx` |
+| `lib` | `libDir` | `lib/utils.ts` |
+| `css` | `cssDir` | `styles/globals.css` |
+| `route` | `baseDir` | `app/api/search/route.ts` |
+
+---
+
+## IDE Integration
+
+### VS Code
+
+The `$schema` field enables autocomplete and validation in VS Code:
+
+1. Open `cli.json` in VS Code
+2. Start typing to see autocomplete suggestions
+3. Hover over fields for documentation
+4. Get instant validation for invalid values
+
+### TypeScript Path Aliases
+
+Ensure your `tsconfig.json` paths match your CLI configuration:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/components/*": ["./src/components/*"],
+      "@/lib/*": ["./src/lib/*"],
+      "@/styles/*": ["./src/styles/*"]
+    }
+  }
+}
+```
+
+<Warning>
+  If your TypeScript paths don't match CLI aliases, imports may break.
+</Warning>
+
+---
+
+## Environment Detection
+
+The CLI automatically detects your project structure:
+
+### `src` Directory Detection
+
+When you run `npx fumadocs`, the CLI:
+
+1. Checks if a `src` directory exists
+2. Sets `baseDir` to `"src"` if found, `""` otherwise
+3. Uses the appropriate schema reference
+
+**Detection logic:**
+```typescript
+const hasSrc = await fs.stat('./src').then(() => true).catch(() => false);
+const baseDir = hasSrc ? 'src' : '';
+```
+
+### Package Manager Detection
+
+The CLI automatically detects your package manager for dependency installation:
+
+- Checks for `pnpm-lock.yaml` → uses `pnpm`
+- Checks for `yarn.lock` → uses `yarn`
+- Checks for `package-lock.json` → uses `npm`
+- Defaults to `npm` if none found
+
+---
+
+## Migration Guide
+
+### Changing `baseDir`
+
+If you need to move from a root-level to `src`-based structure:
+
+<Steps>
+  <Step title="Update baseDir">
+    ```json cli.json
+    {
+      "baseDir": "src"
+    }
+    ```
+  </Step>
+  
+  <Step title="Move existing components">
+    ```bash
+    mkdir -p src
+    mv components src/
+    mv lib src/
+    mv styles src/
+    ```
+  </Step>
+  
+  <Step title="Update imports">
+    Update import paths in your files to include `src/` or use `@/` alias.
+  </Step>
+  
+  <Step title="Update schema reference">
+    ```json cli.json
+    {
+      "$schema": "node_modules/@fumadocs/cli/dist/schema/src.json"
+    }
+    ```
+  </Step>
+</Steps>
+
+### Switching UI Libraries
+
+To switch from Radix UI to Base UI (or vice versa):
+
+<Steps>
+  <Step title="Update configuration">
+    ```json cli.json
+    {
+      "uiLibrary": "base-ui"
+    }
+    ```
+  </Step>
+  
+  <Step title="Reinstall components">
+    ```bash
+    # Remove existing UI components
+    rm -rf src/components/ui
+    
+    # Reinstall with new UI library
+    npx fumadocs add button card dialog
+    ```
+  </Step>
+  
+  <Step title="Update dependencies">
+    Install the new UI library's peer dependencies as prompted.
+  </Step>
+</Steps>
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Components installed to wrong directory">
+    **Problem**: Components are being installed to unexpected locations.
+    
+    **Solution**: Check your `baseDir` and alias configuration:
+    
+    ```bash
+    # View current configuration
+    cat cli.json
+    
+    # Verify paths are correct
+    # Remember: {baseDir}/{alias}/{component}
+    ```
+  </Accordion>
+  
+  <Accordion title="Schema validation errors">
+    **Problem**: VS Code shows errors in `cli.json`.
+    
+    **Solution**: Ensure your schema reference matches your project structure:
+    
+    ```json
+    // For projects with src directory:
+    {
+      "$schema": "node_modules/@fumadocs/cli/dist/schema/src.json"
+    }
+    
+    // For projects without src directory:
+    {
+      "$schema": "node_modules/@fumadocs/cli/dist/schema/default.json"
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Import path mismatches">
+    **Problem**: TypeScript can't find imported components.
+    
+    **Solution**: Ensure `tsconfig.json` paths match CLI aliases:
+    
+    ```json tsconfig.json
+    {
+      "compilerOptions": {
+        "paths": {
+          "@/components/*": ["./src/components/*"],
+          "@/lib/*": ["./src/lib/*"]
+        }
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Format command not running">
+    **Problem**: Code isn't being formatted after installation.
+    
+    **Solution**: Ensure the format command is installed and accessible:
+    
+    ```bash
+    # Install formatter as dev dependency
+    npm install -D prettier
+    
+    # Update config
+    {
+      "commands": {
+        "format": "prettier --write"
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Version control" icon="git">
+    Always commit `cli.json` to ensure consistent component paths across your team.
+  </Card>
+  
+  <Card title="Match TypeScript paths" icon="code">
+    Keep `tsconfig.json` paths in sync with CLI aliases to avoid import errors.
+  </Card>
+  
+  <Card title="Use auto-formatting" icon="wand-magic-sparkles">
+    Configure `commands.format` to maintain consistent code style automatically.
+  </Card>
+  
+  <Card title="Document customizations" icon="book">
+    Add comments to explain non-standard alias configurations for team members.
+  </Card>
+</CardGroup>

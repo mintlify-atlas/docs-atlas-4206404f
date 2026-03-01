@@ -1,0 +1,439 @@
+---
+title: Syntax Extensions
+description: Extended Markdown syntax for callouts, steps, tabs, and more
+---
+
+Fumadocs extends standard Markdown with powerful syntax features through custom remark plugins.
+
+## Admonitions (Callouts)
+
+Admonitions are special blocks for notes, warnings, tips, and other highlighted content.
+
+### Directive Syntax (Recommended)
+
+Using `remark-directive` with `remarkDirectiveAdmonition`:
+
+```ts title="source.config.ts"
+import { defineConfig } from 'fumadocs-mdx/config';
+import { remarkDirectiveAdmonition } from 'fumadocs-core/mdx-plugins';
+import remarkDirective from 'remark-directive';
+
+export default defineConfig({
+  mdxOptions: {
+    remarkPlugins: [
+      remarkDirective,
+      remarkDirectiveAdmonition,
+    ],
+  },
+});
+```
+
+In your MDX:
+
+```md
+:::note
+This is a note
+:::
+
+:::tip[Custom Title]
+This is a tip with a custom title
+:::
+
+:::warning
+Be careful with this!
+:::
+
+:::danger
+Dangerous operation ahead
+:::
+```
+
+### Supported Types
+
+The `remarkDirectiveAdmonition` plugin supports these types by default:
+
+```ts
+// Default type mapping (from packages/core/src/mdx-plugins/remark-directive-admonition.ts:35)
+const types = {
+  note: 'info',
+  tip: 'info',
+  info: 'info',
+  warn: 'warning',
+  warning: 'warning',
+  danger: 'error',
+  success: 'success',
+};
+```
+
+### Custom Configuration
+
+Customize admonition types and component names:
+
+```ts title="source.config.ts"
+import { remarkDirectiveAdmonition } from 'fumadocs-core/mdx-plugins';
+
+remarkPlugins: [
+  [remarkDirectiveAdmonition, {
+    // Custom component names
+    tags: {
+      CalloutContainer: 'Callout',
+      CalloutTitle: 'CalloutTitle',
+      CalloutDescription: 'CalloutBody',
+    },
+    // Custom type mappings
+    types: {
+      note: 'info',
+      important: 'error',
+      tip: 'success',
+    },
+  }],
+]
+```
+
+### Legacy Syntax
+
+Docusaurus-style syntax (deprecated, use directive syntax instead):
+
+```ts
+import { remarkAdmonition } from 'fumadocs-core/mdx-plugins';
+
+remarkPlugins: [
+  [remarkAdmonition, {
+    tag: ':::',
+    typeMap: {
+      note: 'info',
+      warning: 'warn',
+    },
+  }],
+]
+```
+
+## Steps
+
+Convert numbered headings into visual step sequences.
+
+### Configuration
+
+```ts title="source.config.ts"
+import { remarkSteps } from 'fumadocs-core/mdx-plugins';
+
+remarkPlugins: [
+  [remarkSteps, {
+    steps: 'fd-steps',  // Container class
+    step: 'fd-step',    // Individual step class
+  }],
+]
+```
+
+### Usage
+
+Use numbered headings (e.g., `1. Step Name`):
+
+```md
+### 1. Install Dependencies
+
+First, install the required packages:
+
+```bash
+npm install fumadocs-core
+```
+
+### 2. Configure Your Project
+
+Create a configuration file:
+
+```ts
+export default defineConfig({ ... });
+```
+
+### 3. Start Building
+
+You're ready to create content!
+```
+
+The plugin automatically:
+- Detects headings starting with `1.`, `2.`, etc.
+- Wraps them in step containers
+- Groups related content under each step
+- Maintains proper nesting with deeper headings
+
+From `/packages/core/src/mdx-plugins/remark-steps.ts:22`:
+
+```ts
+const StepRegex = /^(\d+)\.\s(.+)$/;
+```
+
+## Code Tabs
+
+Create tabbed interfaces for code examples in multiple languages or frameworks.
+
+### Configuration
+
+```ts title="source.config.ts"
+import { remarkCodeTab } from 'fumadocs-core/mdx-plugins';
+
+remarkPlugins: [
+  [remarkCodeTab, {
+    Tabs: 'CodeBlockTabs', // or 'Tabs'
+    parseMdx: false,       // Parse MDX in tab labels
+  }],
+]
+```
+
+### Usage
+
+Add `tab="label"` to consecutive code blocks:
+
+```md
+```js tab="JavaScript"
+const hello = 'world';
+console.log(hello);
+```
+
+```ts tab="TypeScript"
+const hello: string = 'world';
+console.log(hello);
+```
+
+```python tab="Python"
+hello = 'world'
+print(hello)
+```
+```
+
+### Tab Types
+
+Two component styles are available:
+
+#### CodeBlockTabs (Default)
+
+Optimized for code blocks:
+
+```tsx
+<CodeBlockTabs defaultValue="JavaScript">
+  <CodeBlockTabsList>
+    <CodeBlockTabsTrigger value="JavaScript">JavaScript</CodeBlockTabsTrigger>
+    <CodeBlockTabsTrigger value="TypeScript">TypeScript</CodeBlockTabsTrigger>
+  </CodeBlockTabsList>
+  <CodeBlockTab value="JavaScript">{/* code */}</CodeBlockTab>
+  <CodeBlockTab value="TypeScript">{/* code */}</CodeBlockTab>
+</CodeBlockTabs>
+```
+
+#### Tabs (Generic)
+
+General-purpose tabs component:
+
+```tsx
+<Tabs items={['JavaScript', 'TypeScript']}>
+  <Tab value="JavaScript">{/* code */}</Tab>
+  <Tab value="TypeScript">{/* code */}</Tab>
+</Tabs>
+```
+
+### MDX in Tab Labels
+
+Enable `parseMdx` to use rich content in tab labels:
+
+```ts
+remarkPlugins: [
+  [remarkCodeTab, { parseMdx: true }],
+]
+```
+
+Then use inline MDX:
+
+```md
+```js tab="**JavaScript** `ES6`"
+// ...
+```
+```
+
+## Images
+
+Automatic image optimization for Next.js Image component.
+
+### Configuration
+
+```ts title="source.config.ts"
+import { remarkImage } from 'fumadocs-core/mdx-plugins';
+
+remarkPlugins: [
+  [remarkImage, {
+    // Use imports (recommended)
+    useImport: true,
+    
+    // Blur placeholder for local images
+    placeholder: 'blur',
+    
+    // Public directory for absolute paths
+    publicDir: './public',
+    
+    // Fetch external image sizes
+    external: {
+      timeout: 5000,
+    },
+    
+    // Error handling
+    onError: 'error', // or 'ignore', 'hide'
+  }],
+]
+```
+
+### Features
+
+#### Automatic Size Detection
+
+Local and remote images get width/height automatically:
+
+```md
+![Example](/example.png)
+<!-- Adds width and height attributes -->
+```
+
+#### Import-based Loading
+
+Local images are imported for better bundler optimization:
+
+```md
+![Local](./image.png)
+```
+
+Becomes:
+
+```tsx
+import __img0 from './image.png';
+
+<img src={__img0} alt="Local" placeholder="blur" />
+```
+
+#### Blur Placeholder
+
+Supported formats (from `/packages/core/src/mdx-plugins/remark-image.ts:10`):
+
+```ts
+const VALID_BLUR_EXT = ['.jpeg', '.png', '.webp', '.avif', '.jpg'];
+```
+
+#### External Images
+
+Fetch and cache external image dimensions:
+
+```md
+![Remote](https://example.com/image.png)
+```
+
+## Custom Headings
+
+Generate heading IDs with custom slugs.
+
+### Configuration
+
+```ts title="source.config.ts"
+import { remarkHeading } from 'fumadocs-core/mdx-plugins';
+
+remarkPlugins: [
+  [remarkHeading, {
+    // Custom slug function
+    slug: (root, heading, text) => {
+      return text.toLowerCase().replace(/\s+/g, '-');
+    },
+    
+    // Allow custom IDs with [#id] syntax
+    customId: true,
+    
+    // Generate TOC data
+    generateToc: true,
+  }],
+]
+```
+
+### Custom IDs
+
+Override automatic slugs:
+
+```md
+## My Heading [#custom-id]
+```
+
+Generates:
+
+```html
+<h2 id="custom-id">My Heading</h2>
+```
+
+### TOC Generation
+
+TOC data is attached to `file.data.toc`:
+
+```ts
+interface TOCItemType {
+  title: string;
+  url: string;    // #heading-id
+  depth: number;  // 1-6
+}
+```
+
+## Structured Data
+
+Extract searchable content from your MDX.
+
+### Configuration
+
+```ts title="source.config.ts"
+import { remarkStructure } from 'fumadocs-core/mdx-plugins';
+
+remarkPlugins: [
+  [remarkStructure, {
+    // Types to extract as content blocks
+    types: ['heading', 'paragraph', 'blockquote', 'tableCell'],
+    
+    // Export as named export
+    exportAs: 'structuredData',
+    
+    // Custom stringifier
+    stringify: {
+      filterElement: (node) => {
+        // Include specific MDX components
+        if (node.type === 'mdxJsxFlowElement') {
+          return node.name === 'Callout';
+        }
+        return true;
+      },
+    },
+  }],
+]
+```
+
+### Output Format
+
+From `/packages/core/src/mdx-plugins/remark-structure.ts:27`:
+
+```ts
+interface StructuredData {
+  headings: Array<{
+    id: string;
+    content: string;
+  }>;
+  contents: Array<{
+    heading: string | undefined;  // Parent heading ID
+    content: string;              // Text content
+  }>;
+}
+```
+
+### Usage in Search
+
+Use structured data for search indexing:
+
+```ts
+import { structuredData } from './content.mdx';
+
+// Index for search
+structuredData.contents.forEach(({ heading, content }) => {
+  searchIndex.add({
+    section: heading,
+    text: content,
+  });
+});
+```

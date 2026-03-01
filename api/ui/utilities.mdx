@@ -1,0 +1,526 @@
+---
+title: Utilities
+description: Utility functions and hooks for Fumadocs UI
+---
+
+## cn
+
+Utility function for merging Tailwind CSS classes.
+
+```tsx
+import { cn } from 'fumadocs-ui/utils/cn';
+```
+
+### Signature
+
+```tsx
+function cn(...inputs: ClassValue[]): string
+```
+
+This is a re-export of `twMerge` from `tailwind-merge` for convenient class name merging.
+
+### Usage
+
+```tsx
+import { cn } from 'fumadocs-ui/utils/cn';
+
+function Button({ className, variant }) {
+  return (
+    <button
+      className={cn(
+        'px-4 py-2 rounded',
+        variant === 'primary' && 'bg-blue-500 text-white',
+        variant === 'secondary' && 'bg-gray-200 text-black',
+        className
+      )}
+    >
+      Click me
+    </button>
+  );
+}
+```
+
+---
+
+## useCopyButton
+
+Hook for implementing copy-to-clipboard functionality with visual feedback.
+
+```tsx
+import { useCopyButton } from 'fumadocs-ui/utils/use-copy-button';
+```
+
+### Signature
+
+```tsx
+function useCopyButton(
+  onCopy: () => void | Promise<void>
+): [checked: boolean, onClick: MouseEventHandler]
+```
+
+### Parameters
+
+<ParamField path="onCopy" type="() => void | Promise<void>" required>
+  Function to execute when copy is triggered (typically writing to clipboard)
+</ParamField>
+
+### Returns
+
+Returns a tuple:
+- `checked` (boolean) - True for 1.5s after successful copy
+- `onClick` (MouseEventHandler) - Click handler for copy button
+
+### Usage
+
+```tsx
+import { useCopyButton } from 'fumadocs-ui/utils/use-copy-button';
+import { Check, Copy } from 'lucide-react';
+
+function CopyCodeButton({ code }: { code: string }) {
+  const [copied, onClick] = useCopyButton(() => {
+    return navigator.clipboard.writeText(code);
+  });
+  
+  return (
+    <button onClick={onClick}>
+      {copied ? <Check /> : <Copy />}
+      {copied ? 'Copied!' : 'Copy'}
+    </button>
+  );
+}
+```
+
+---
+
+## mergeRefs
+
+Merge multiple React refs into a single callback ref.
+
+```tsx
+import { mergeRefs } from 'fumadocs-ui/utils/merge-refs';
+```
+
+### Signature
+
+```tsx
+function mergeRefs<T>(
+  ...refs: (React.Ref<T> | undefined)[]
+): React.RefCallback<T>
+```
+
+### Usage
+
+```tsx
+import { mergeRefs } from 'fumadocs-ui/utils/merge-refs';
+import { useRef, forwardRef } from 'react';
+
+const Component = forwardRef<HTMLDivElement>((props, forwardedRef) => {
+  const localRef = useRef<HTMLDivElement>(null);
+  
+  return (
+    <div 
+      ref={mergeRefs(localRef, forwardedRef)}
+      {...props}
+    />
+  );
+});
+```
+
+---
+
+## isActive
+
+Check if a URL/path is active based on current pathname.
+
+```tsx
+import { isActive } from 'fumadocs-ui/utils/urls';
+```
+
+### Signature
+
+```tsx
+function isActive(
+  href: string,
+  pathname: string,
+  nested?: boolean
+): boolean
+```
+
+### Parameters
+
+<ParamField path="href" type="string" required>
+  Link URL to check
+</ParamField>
+
+<ParamField path="pathname" type="string" required>
+  Current pathname
+</ParamField>
+
+<ParamField path="nested" type="boolean">
+  If true, also matches nested paths (default: `false`)
+</ParamField>
+
+### Usage
+
+```tsx
+import { isActive } from 'fumadocs-ui/utils/urls';
+import { usePathname } from 'next/navigation';
+
+function NavLink({ href, children }) {
+  const pathname = usePathname();
+  const active = isActive(href, pathname, true);
+  
+  return (
+    <a 
+      href={href}
+      className={active ? 'font-bold' : ''}
+    >
+      {children}
+    </a>
+  );
+}
+```
+
+---
+
+## normalize
+
+Normalize URLs by removing trailing slashes.
+
+```tsx
+import { normalize } from 'fumadocs-ui/utils/urls';
+```
+
+### Signature
+
+```tsx
+function normalize(urlOrPath: string): string
+```
+
+### Usage
+
+```tsx
+import { normalize } from 'fumadocs-ui/utils/urls';
+
+normalize('/docs/');     // '/docs'
+normalize('/docs');      // '/docs'
+normalize('/');          // '/'
+```
+
+---
+
+## useFooterItems
+
+Get a flattened list of all page items in the current tree for footer navigation.
+
+```tsx
+import { useFooterItems } from 'fumadocs-ui/utils/use-footer-items';
+```
+
+### Signature
+
+```tsx
+function useFooterItems(): PageTree.Item[]
+```
+
+### Returns
+
+Array of page tree items (pages only, excluding folders and external links)
+
+### Usage
+
+```tsx
+import { useFooterItems } from 'fumadocs-ui/utils/use-footer-items';
+import { usePathname } from 'next/navigation';
+
+function PageNavigation() {
+  const items = useFooterItems();
+  const pathname = usePathname();
+  
+  const currentIndex = items.findIndex(item => item.url === pathname);
+  const previous = items[currentIndex - 1];
+  const next = items[currentIndex + 1];
+  
+  return (
+    <nav>
+      {previous && (
+        <a href={previous.url}>← {previous.name}</a>
+      )}
+      {next && (
+        <a href={next.url}>{next.name} →</a>
+      )}
+    </nav>
+  );
+}
+```
+
+---
+
+## LinkItem
+
+Component for rendering navigation links with active state.
+
+```tsx
+import { LinkItem } from 'fumadocs-ui/utils/link-item';
+```
+
+### Props
+
+Extends `ComponentProps<'a'>` (excluding `href`)
+
+<ParamField path="item" type="LinkItemType" required>
+  Link configuration object
+</ParamField>
+
+### LinkItemType
+
+Union type supporting multiple link types:
+
+#### MainItemType
+
+<ParamField path="type" type="'main'">
+  Main navigation link
+</ParamField>
+
+<ParamField path="text" type="ReactNode" required>
+  Link text
+</ParamField>
+
+<ParamField path="url" type="string" required>
+  Link URL
+</ParamField>
+
+<ParamField path="icon" type="ReactNode">
+  Link icon
+</ParamField>
+
+<ParamField path="description" type="ReactNode">
+  Link description
+</ParamField>
+
+<ParamField path="active" type="'url' | 'nested-url' | 'none'">
+  Active state matching (default: `'url'`)
+</ParamField>
+
+<ParamField path="external" type="boolean">
+  External link
+</ParamField>
+
+<ParamField path="on" type="'menu' | 'nav' | 'all'">
+  Where to display link (default: `'all'`)
+</ParamField>
+
+#### IconItemType
+
+<ParamField path="type" type="'icon'" required>
+  Icon-only link
+</ParamField>
+
+<ParamField path="icon" type="ReactNode" required>
+  Icon element
+</ParamField>
+
+<ParamField path="label" type="string">
+  Aria-label for accessibility
+</ParamField>
+
+#### ButtonItemType
+
+<ParamField path="type" type="'button'" required>
+  Button-style link
+</ParamField>
+
+<ParamField path="secondary" type="boolean">
+  Use secondary styling (default: `false`)
+</ParamField>
+
+#### MenuItemType
+
+<ParamField path="type" type="'menu'" required>
+  Dropdown menu with sub-items
+</ParamField>
+
+<ParamField path="items" type="(MainItemType | CustomItemType)[]" required>
+  Menu items
+</ParamField>
+
+#### CustomItemType
+
+<ParamField path="type" type="'custom'" required>
+  Custom content
+</ParamField>
+
+<ParamField path="children" type="ReactNode" required>
+  Custom content to render
+</ParamField>
+
+### Usage
+
+```tsx
+import { LinkItem } from 'fumadocs-ui/utils/link-item';
+import { GithubIcon } from 'lucide-react';
+
+const links = [
+  {
+    type: 'main' as const,
+    url: '/docs',
+    text: 'Documentation',
+    icon: <BookIcon />
+  },
+  {
+    type: 'icon' as const,
+    url: 'https://github.com/user/repo',
+    text: 'GitHub',
+    icon: <GithubIcon />,
+    label: 'GitHub Repository',
+    external: true
+  }
+];
+
+function Navigation() {
+  return (
+    <nav>
+      {links.map((item, i) => (
+        <LinkItem key={i} item={item} />
+      ))}
+    </nav>
+  );
+}
+```
+
+---
+
+## useLinkItemActive
+
+Determine if a link item is active.
+
+```tsx
+import { useLinkItemActive } from 'fumadocs-ui/utils/link-item';
+```
+
+### Signature
+
+```tsx
+function useLinkItemActive(link: LinkItemType): boolean
+```
+
+### Usage
+
+```tsx
+import { useLinkItemActive } from 'fumadocs-ui/utils/link-item';
+
+function CustomNavLink({ item }) {
+  const active = useLinkItemActive(item);
+  
+  return (
+    <a 
+      href={item.url}
+      data-active={active}
+      className="data-[active=true]:font-bold"
+    >
+      {item.text}
+    </a>
+  );
+}
+```
+
+---
+
+## resolveLinkItems
+
+Resolve link items with shortcuts (e.g., auto-adding GitHub icon).
+
+```tsx
+import { resolveLinkItems } from 'fumadocs-ui/layouts/shared';
+```
+
+### Signature
+
+```tsx
+function resolveLinkItems({
+  links,
+  githubUrl
+}: {
+  links?: LinkItemType[];
+  githubUrl?: string;
+}): LinkItemType[]
+```
+
+### Usage
+
+```tsx
+import { resolveLinkItems } from 'fumadocs-ui/layouts/shared';
+
+const links = resolveLinkItems({
+  links: [
+    { type: 'main', url: '/docs', text: 'Docs' }
+  ],
+  githubUrl: 'https://github.com/user/repo'
+});
+// Returns: [...original links, GitHub icon link]
+```
+
+---
+
+## useLinkItems
+
+Hook to categorize links for different layout areas.
+
+```tsx
+import { useLinkItems } from 'fumadocs-ui/layouts/shared';
+```
+
+### Signature
+
+```tsx
+function useLinkItems({
+  links,
+  githubUrl
+}: {
+  links?: LinkItemType[];
+  githubUrl?: string;
+}): {
+  navItems: LinkItemType[];
+  menuItems: LinkItemType[];
+  all: LinkItemType[];
+}
+```
+
+### Returns
+
+<ParamField path="navItems" type="LinkItemType[]">
+  Links for navbar (items with `on: 'nav'` or `on: 'all'`)
+</ParamField>
+
+<ParamField path="menuItems" type="LinkItemType[]">
+  Links for sidebar/menu (items with `on: 'menu'` or `on: 'all'`)
+</ParamField>
+
+<ParamField path="all" type="LinkItemType[]">
+  All resolved links
+</ParamField>
+
+### Usage
+
+```tsx
+import { useLinkItems } from 'fumadocs-ui/layouts/shared';
+
+function Layout({ links, githubUrl }) {
+  const { navItems, menuItems } = useLinkItems({ links, githubUrl });
+  
+  return (
+    <>
+      <nav>
+        {navItems.map((item, i) => (
+          <NavItem key={i} item={item} />
+        ))}
+      </nav>
+      <aside>
+        {menuItems.map((item, i) => (
+          <MenuItem key={i} item={item} />
+        ))}
+      </aside>
+    </>
+  );
+}
+```

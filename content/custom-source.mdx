@@ -1,0 +1,539 @@
+---
+title: Custom Source
+description: Create custom content source adapters using the Fumadocs Source API
+---
+
+The Fumadocs Source API allows you to create custom content source adapters for any data source. This gives you complete flexibility to use databases, CMSs, APIs, or any other content storage system.
+
+## Source Interface
+
+A source is an object that implements the `Source` interface:
+
+```ts
+import type { Source, PageData, MetaData } from 'fumadocs-core/source';
+
+interface Source<Config extends SourceConfig = SourceConfig> {
+  files: VirtualFile<Config>[];
+}
+
+interface SourceConfig {
+  pageData: PageData;
+  metaData: MetaData;
+}
+```
+
+## Virtual Files
+
+Virtual files represent your content in Fumadocs' format:
+
+```ts
+type VirtualFile<Config extends SourceConfig> =
+  | VirtualPage<Config['pageData']>
+  | VirtualMeta<Config['metaData']>;
+
+interface VirtualPage<Data extends PageData> {
+  type: 'page';
+  
+  /**
+   * Virtualized path (relative to content directory)
+   * @example 'docs/getting-started.mdx'
+   */
+  path: string;
+  
+  /**
+   * Absolute path of the file (optional)
+   */
+  absolutePath?: string;
+  
+  /**
+   * Specified slugs for page
+   */
+  slugs?: string[];
+  
+  /**
+   * Page data
+   */
+  data: Data;
+}
+
+interface VirtualMeta<Data extends MetaData> {
+  type: 'meta';
+  path: string;
+  absolutePath?: string;
+  data: Data;
+}
+```
+
+## Creating a Basic Source
+
+Here's a simple example of creating a custom source:
+
+```ts title="lib/custom-source.ts"
+import { source as createSource } from 'fumadocs-core/source';
+import type { PageData, MetaData } from 'fumadocs-core/source';
+
+interface CustomPageData extends PageData {
+  title: string;
+  description?: string;
+  body: React.ComponentType;
+}
+
+interface CustomMetaData extends MetaData {
+  title?: string;
+  pages?: string[];
+}
+
+const mySource = createSource<CustomPageData, CustomMetaData>({
+  pages: [
+    {
+      type: 'page',
+      path: 'docs/introduction.mdx',
+      data: {
+        title: 'Introduction',
+        description: 'Get started with our docs',
+        body: () => <div>Welcome!</div>,
+      },
+    },
+    {
+      type: 'page',
+      path: 'docs/installation.mdx',
+      data: {
+        title: 'Installation',
+        body: () => <div>Install guide</div>,
+      },
+    },
+  ],
+  metas: [
+    {
+      type: 'meta',
+      path: 'docs/meta.json',
+      data: {
+        title: 'Documentation',
+        pages: ['introduction', 'installation'],
+      },
+    },
+  ],
+});
+```
+
+## Using the Source with Loader
+
+Once you have a source, use it with the loader:
+
+```ts title="lib/source.ts"
+import { loader } from 'fumadocs-core/source';
+import { mySource } from './custom-source';
+
+export const source = loader({
+  baseUrl: '/docs',
+  source: mySource,
+});
+```
+
+## Database Source Example
+
+Here's an example of creating a source from a database:
+
+```ts title="lib/db-source.ts"
+import { source as createSource } from 'fumadocs-core/source';
+import type { PageData } from 'fumadocs-core/source';
+import { db } from './db';
+
+interface DBPageData extends PageData {
+  title: string;
+  description?: string;
+  content: string;
+  updatedAt: Date;
+}
+
+export async function createDatabaseSource() {
+  // Fetch pages from database
+  const dbPages = await db.page.findMany({
+    where: { published: true },
+    include: { content: true },
+  });
+  
+  // Convert to virtual pages
+  const pages = dbPages.map((page) => ({
+    type: 'page' as const,
+    path: `${page.category}/${page.slug}.mdx`,
+    data: {
+      title: page.title,
+      description: page.description,
+      content: page.content.body,
+      updatedAt: page.updatedAt,
+    },
+  }));
+  
+  // Fetch navigation metadata
+  const categories = await db.category.findMany({
+    include: { pages: true },
+  });
+  
+  const metas = categories.map((category) => ({
+    type: 'meta' as const,
+    path: `${category.slug}/meta.json`,
+    data: {
+      title: category.name,
+      pages: category.pages.map((p) => p.slug),
+    },
+  }));
+  
+  return createSource<DBPageData, MetaData>({
+    pages,
+    metas,
+  });
+}
+```
+
+```ts title="lib/source.ts"
+import { loader } from 'fumadocs-core/source';
+import { createDatabaseSource } from './db-source';
+
+export const source = loader({
+  baseUrl: '/docs',
+  source: await createDatabaseSource(),
+});
+```
+
+## CMS Source Example
+
+Connect to a headless CMS like Contentful or Sanity:
+
+```ts title="lib/cms-source.ts"
+import { source as createSource } from 'fumadocs-core/source';
+import type { PageData, MetaData } from 'fumadocs-core/source';
+import { createClient } from 'contentful';
+
+const client = createClient({
+  space: process.env.CONTENTFUL_SPACE_ID!,
+  accessToken: process.env.CONTENTFUL_ACCESS_TOKEN!,
+});
+
+interface CMSPageData extends PageData {
+  title: string;
+  description?: string;
+  body: string;
+}
+
+export async function createCMSSource() {
+  const entries = await client.getEntries({
+    content_type: 'documentationPage',
+  });
+  
+  const pages = entries.items.map((entry) => ({
+    type: 'page' as const,
+    path: `docs/${entry.fields.slug}.mdx`,
+    data: {
+      title: entry.fields.title as string,
+      description: entry.fields.description as string,
+      body: entry.fields.content as string,
+    },
+  }));
+  
+  const navEntries = await client.getEntries({
+    content_type: 'navigation',
+  });
+  
+  const metas = navEntries.items.map((entry) => ({
+    type: 'meta' as const,
+    path: `docs/${entry.fields.slug}/meta.json`,
+    data: {
+      title: entry.fields.title as string,
+      pages: entry.fields.pages as string[],
+    },
+  }));
+  
+  return createSource<CMSPageData, MetaData>({
+    pages,
+    metas,
+  });
+}
+```
+
+## Transforming Sources
+
+Use the `update` helper to transform an existing source:
+
+```ts
+import { update } from 'fumadocs-core/source';
+
+const transformed = update(mySource)
+  .page((page) => ({
+    ...page,
+    data: {
+      ...page.data,
+      // Add custom field
+      readingTime: calculateReadingTime(page.data.content),
+    },
+  }))
+  .meta((meta) => ({
+    ...meta,
+    data: {
+      ...meta.data,
+      // Add custom field
+      itemCount: meta.data.pages?.length ?? 0,
+    },
+  }))
+  .build();
+```
+
+## Advanced: Multiple Sources
+
+Combine multiple sources using the `multiple` helper:
+
+```ts
+import { multiple } from 'fumadocs-core/source';
+import { loader } from 'fumadocs-core/source';
+
+const combined = multiple({
+  docs: docsSource,
+  api: apiSource,
+  guides: guidesSource,
+});
+
+export const source = loader({
+  baseUrl: '/',
+  source: combined,
+});
+
+// Access with type discrimination
+const page = source.getPage(['docs', 'intro']);
+if (page.data.type === 'docs') {
+  // TypeScript knows this is from docsSource
+  console.log(page.data.title);
+}
+```
+
+## Custom Data Types
+
+Extend `PageData` and `MetaData` with your own fields:
+
+```ts
+import type { PageData, MetaData } from 'fumadocs-core/source';
+
+interface CustomPageData extends PageData {
+  title: string;
+  description?: string;
+  
+  // Custom fields
+  author: string;
+  publishedAt: Date;
+  tags: string[];
+  featured: boolean;
+  body: React.ComponentType;
+}
+
+interface CustomMetaData extends MetaData {
+  title?: string;
+  description?: string;
+  pages?: string[];
+  
+  // Custom fields
+  badge?: string;
+  collapsed?: boolean;
+}
+```
+
+## Source API Reference
+
+### Base Interfaces
+
+```ts
+interface PageData {
+  icon?: string | undefined;
+  title?: string;
+  description?: string | undefined;
+}
+
+interface MetaData {
+  icon?: string | undefined;
+  title?: string | undefined;
+  root?: boolean | undefined;
+  pages?: string[] | undefined;
+  defaultOpen?: boolean | undefined;
+  collapsible?: boolean | undefined;
+  description?: string | undefined;
+}
+```
+
+### Helper Functions
+
+```ts
+// Create a source from pages and metas
+function source<Page extends PageData, Meta extends MetaData>(config: {
+  pages: VirtualPage<Page>[];
+  metas: VirtualMeta<Meta>[];
+}): Source<{
+  pageData: Page;
+  metaData: Meta;
+}>;
+
+// Update a source in-place
+function update<Config extends SourceConfig>(
+  source: Source<Config>,
+): {
+  files: (fn) => Update;
+  page: (fn) => Update;
+  meta: (fn) => Update;
+  build: () => Source;
+};
+
+// Combine multiple sources
+function multiple<T extends Record<string, Source>>(
+  sources: T,
+): Source<ConfigUnion<T>>;
+```
+
+## Loader Integration
+
+The loader provides utilities for working with your source:
+
+```ts
+import { loader } from 'fumadocs-core/source';
+
+const source = loader({
+  baseUrl: '/docs',
+  source: mySource,
+  
+  // Customize URL generation
+  url: (slugs, locale) => {
+    return `/${slugs.join('/')}`;
+  },
+  
+  // Add plugins
+  plugins: [
+    // Custom plugins
+  ],
+  
+  // Icon resolver
+  icon: async (icon) => {
+    const { icons } = await import('lucide-react');
+    return icons[icon];
+  },
+  
+  // Custom slug generation
+  slugs: (page) => {
+    return page.path.split('/').slice(1);
+  },
+});
+```
+
+## Type Safety
+
+The Source API is fully typed:
+
+```ts
+import type { InferPageType, InferMetaType } from 'fumadocs-core/source';
+
+type Page = InferPageType<typeof source>;
+type Meta = InferMetaType<typeof source>;
+
+function processPage(page: Page) {
+  // TypeScript knows about your custom fields
+  console.log(page.data.title);
+  console.log(page.data.author); // your custom field
+}
+```
+
+## Remote Content Example
+
+Fetch content from a remote API:
+
+```ts title="lib/remote-source.ts"
+import { source as createSource } from 'fumadocs-core/source';
+import type { PageData } from 'fumadocs-core/source';
+
+interface RemotePageData extends PageData {
+  title: string;
+  content: string;
+  lastModified: string;
+}
+
+export async function createRemoteSource() {
+  const response = await fetch('https://api.example.com/docs');
+  const { pages } = await response.json();
+  
+  const virtualPages = pages.map((page: any) => ({
+    type: 'page' as const,
+    path: `${page.category}/${page.slug}.mdx`,
+    data: {
+      title: page.title,
+      content: page.content,
+      lastModified: page.updated_at,
+    },
+  }));
+  
+  return createSource<RemotePageData, MetaData>({
+    pages: virtualPages,
+    metas: [],
+  });
+}
+```
+
+## File System Source Example
+
+Create a source from local files without using Fumadocs MDX:
+
+```ts title="lib/fs-source.ts"
+import { source as createSource } from 'fumadocs-core/source';
+import type { PageData } from 'fumadocs-core/source';
+import { readFileSync, readdirSync } from 'fs';
+import { join } from 'path';
+import matter from 'gray-matter';
+
+export function createFileSystemSource(contentDir: string) {
+  const files = readdirSync(contentDir, { recursive: true });
+  
+  const pages = files
+    .filter((file) => file.endsWith('.md') || file.endsWith('.mdx'))
+    .map((file) => {
+      const fullPath = join(contentDir, file);
+      const content = readFileSync(fullPath, 'utf-8');
+      const { data, content: body } = matter(content);
+      
+      return {
+        type: 'page' as const,
+        path: file,
+        absolutePath: fullPath,
+        data: {
+          title: data.title,
+          description: data.description,
+          ...data,
+          body,
+        },
+      };
+    });
+  
+  return createSource<PageData, MetaData>({
+    pages,
+    metas: [],
+  });
+}
+```
+
+## Best Practices
+
+1. **Type Safety**: Always extend `PageData` and `MetaData` for type-safe custom fields
+2. **Virtual Paths**: Use consistent virtual paths that match your URL structure
+3. **Error Handling**: Handle errors gracefully when fetching from external sources
+4. **Caching**: Cache expensive operations when creating sources
+5. **Validation**: Validate data from external sources before creating virtual files
+6. **Hot Reload**: For development, consider implementing file watching for local sources
+
+## Debugging
+
+Inspect your source structure:
+
+```ts
+const mySource = createSource({ pages, metas });
+
+console.log('Total files:', mySource.files.length);
+console.log('Pages:', mySource.files.filter((f) => f.type === 'page').length);
+console.log('Metas:', mySource.files.filter((f) => f.type === 'meta').length);
+
+// Log all paths
+mySource.files.forEach((file) => {
+  console.log(`${file.type}: ${file.path}`);
+});
+```

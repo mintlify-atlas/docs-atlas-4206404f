@@ -1,0 +1,335 @@
+---
+title: Table of Contents API
+description: Build and track active headings in your documentation
+---
+
+## Overview
+
+The TOC (Table of Contents) API provides React components and hooks for building interactive table of contents with active heading tracking.
+
+## Types
+
+### TOCItemType
+
+Structure for a table of contents item.
+
+```typescript
+interface TOCItemType {
+  title: ReactNode;
+  url: string;
+  depth: number;
+}
+```
+
+<ParamField path="title" type="ReactNode">
+  Display title for the heading
+</ParamField>
+
+<ParamField path="url" type="string">
+  URL with hash anchor (e.g., `#heading-id`)
+</ParamField>
+
+<ParamField path="depth" type="number">
+  Heading depth (1-6, corresponding to h1-h6)
+</ParamField>
+
+### TableOfContents
+
+Array of TOC items.
+
+```typescript
+type TableOfContents = TOCItemType[];
+```
+
+## Hooks
+
+### useActiveAnchor()
+
+Get the currently active (visible) heading ID.
+
+```typescript
+function useActiveAnchor(): string | undefined;
+```
+
+<ResponseField name="activeId" type="string | undefined">
+  The ID of the topmost visible heading, or undefined if none are visible
+</ResponseField>
+
+**Example:**
+
+```typescript
+import { useActiveAnchor } from 'fumadocs-core/toc';
+
+function TOC({ items }) {
+  const activeId = useActiveAnchor();
+
+  return (
+    <nav>
+      {items.map((item) => (
+        <a
+          key={item.url}
+          href={item.url}
+          data-active={activeId === item.url.slice(1)}
+        >
+          {item.title}
+        </a>
+      ))}
+    </nav>
+  );
+}
+```
+
+### useActiveAnchors()
+
+Get all currently visible heading IDs.
+
+```typescript
+function useActiveAnchors(): string[];
+```
+
+<ResponseField name="activeIds" type="string[]">
+  Array of IDs for all currently visible headings
+</ResponseField>
+
+**Example:**
+
+```typescript
+import { useActiveAnchors } from 'fumadocs-core/toc';
+
+function TOC() {
+  const activeIds = useActiveAnchors();
+
+  return (
+    <div>
+      Active headings: {activeIds.length}
+    </div>
+  );
+}
+```
+
+## Components
+
+### AnchorProvider
+
+Provider component that tracks visible headings using IntersectionObserver.
+
+```typescript
+function AnchorProvider(props: AnchorProviderProps): JSX.Element;
+
+interface AnchorProviderProps {
+  toc: TableOfContents;
+  single?: boolean;
+  children?: ReactNode;
+}
+```
+
+<ParamField path="toc" type="TableOfContents" required>
+  Array of table of contents items to track
+</ParamField>
+
+<ParamField path="single" type="boolean" default="false">
+  Only accept one active item at most (always returns single item)
+</ParamField>
+
+<ParamField path="children" type="ReactNode">
+  Child components that can use TOC hooks
+</ParamField>
+
+**Example:**
+
+```typescript
+import { AnchorProvider } from 'fumadocs-core/toc';
+
+function Page({ toc }) {
+  return (
+    <AnchorProvider toc={toc}>
+      <Article />
+      <Sidebar />
+    </AnchorProvider>
+  );
+}
+```
+
+### ScrollProvider
+
+Provider that enables automatic scrolling of TOC items into view.
+
+```typescript
+function ScrollProvider(props: ScrollProviderProps): JSX.Element;
+
+interface ScrollProviderProps {
+  containerRef: RefObject<HTMLElement | null>;
+  children?: ReactNode;
+}
+```
+
+<ParamField path="containerRef" type="RefObject<HTMLElement>" required>
+  Ref to the scrollable container element
+</ParamField>
+
+<ParamField path="children" type="ReactNode">
+  Child components (typically TOCItem components)
+</ParamField>
+
+**Example:**
+
+```typescript
+import { ScrollProvider } from 'fumadocs-core/toc';
+import { useRef } from 'react';
+
+function TOCNav({ items }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  return (
+    <ScrollProvider containerRef={containerRef}>
+      <div ref={containerRef} className="overflow-auto h-full">
+        {/* TOC items */}
+      </div>
+    </ScrollProvider>
+  );
+}
+```
+
+### TOCItem
+
+Interactive TOC link component with active state tracking.
+
+```typescript
+function TOCItem(props: TOCItemProps): JSX.Element;
+
+interface TOCItemProps extends Omit<ComponentProps<'a'>, 'href'> {
+  href: string;
+  onActiveChange?: (active: boolean) => void;
+}
+```
+
+<ParamField path="href" type="string" required>
+  Anchor link (should include `#` prefix)
+</ParamField>
+
+<ParamField path="onActiveChange" type="(active: boolean) => void">
+  Callback when active state changes
+</ParamField>
+
+<ParamField path="...props" type="ComponentProps<'a'>">
+  Additional anchor element props (className, onClick, etc.)
+</ParamField>
+
+**Example:**
+
+```typescript
+import { TOCItem, AnchorProvider } from 'fumadocs-core/toc';
+
+function TableOfContents({ toc }) {
+  return (
+    <AnchorProvider toc={toc}>
+      <nav>
+        {toc.map((item) => (
+          <TOCItem
+            key={item.url}
+            href={item.url}
+            style={{ paddingLeft: `${(item.depth - 2) * 12}px` }}
+          >
+            {item.title}
+          </TOCItem>
+        ))}
+      </nav>
+    </AnchorProvider>
+  );
+}
+```
+
+## Complete Example
+
+Here's a complete example combining all TOC components and hooks:
+
+```typescript
+import {
+  AnchorProvider,
+  ScrollProvider,
+  TOCItem,
+  useActiveAnchor,
+  type TableOfContents
+} from 'fumadocs-core/toc';
+import { useRef } from 'react';
+
+interface TOCProps {
+  toc: TableOfContents;
+}
+
+function TOCList({ toc }: TOCProps) {
+  return (
+    <ul className="space-y-2">
+      {toc.map((item) => (
+        <li key={item.url}>
+          <TOCItem
+            href={item.url}
+            className="block py-1 text-sm transition-colors hover:text-primary"
+            style={{
+              paddingLeft: `${(item.depth - 2) * 16}px`
+            }}
+          >
+            {item.title}
+          </TOCItem>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function TOCHeading() {
+  const activeId = useActiveAnchor();
+
+  return (
+    <div className="text-sm text-muted-foreground">
+      {activeId ? `Reading: ${activeId}` : 'Table of Contents'}
+    </div>
+  );
+}
+
+export function TableOfContents({ toc }: TOCProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  if (toc.length === 0) return null;
+
+  return (
+    <AnchorProvider toc={toc} single>
+      <aside className="sticky top-20">
+        <TOCHeading />
+        <ScrollProvider containerRef={containerRef}>
+          <div
+            ref={containerRef}
+            className="max-h-[calc(100vh-8rem)] overflow-auto"
+          >
+            <TOCList toc={toc} />
+          </div>
+        </ScrollProvider>
+      </aside>
+    </AnchorProvider>
+  );
+}
+```
+
+## Usage with CSS
+
+The `TOCItem` component adds a `data-active` attribute when the item is active:
+
+```css
+/* Style active TOC items */
+a[data-active='true'] {
+  color: var(--primary);
+  font-weight: 600;
+  border-left: 2px solid var(--primary);
+}
+```
+
+Or with Tailwind CSS:
+
+```typescript
+<TOCItem
+  href={item.url}
+  className="data-[active=true]:text-primary data-[active=true]:font-semibold"
+>
+  {item.title}
+</TOCItem>
+```

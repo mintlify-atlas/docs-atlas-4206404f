@@ -1,0 +1,407 @@
+---
+title: Configuration API
+description: Define collections and configure MDX processing
+---
+
+The configuration API allows you to define content collections and customize MDX processing behavior.
+
+## defineConfig
+
+Defines global configuration for Fumadocs MDX.
+
+```ts
+import { defineConfig } from 'fumadocs-mdx/config';
+
+export default defineConfig({
+  plugins: [],
+  mdxOptions: {
+    remarkPlugins: [],
+    rehypePlugins: []
+  },
+  workspaces: {},
+  experimentalBuildCache: '.cache'
+});
+```
+
+<ParamField path="plugins" type="PluginOption[]">
+  Array of plugins to extend functionality
+</ParamField>
+
+<ParamField path="mdxOptions" type="MDXPresetOptions | (() => Promise<MDXPresetOptions>)">
+  Global MDX processor options or async function returning options
+</ParamField>
+
+<ParamField path="workspaces" type="Record<string, { dir: string; config: Record<string, unknown> }>">
+  Multi-workspace configuration for monorepos
+</ParamField>
+
+<ParamField path="experimentalBuildCache" type="string">
+  Directory path for build cache storage (disabled in development)
+</ParamField>
+
+## defineCollections
+
+Defines a single content collection.
+
+### Document Collection
+
+```ts
+import { defineCollections, frontmatterSchema } from 'fumadocs-mdx/config';
+import { z } from 'zod';
+
+export const docs = defineCollections({
+  type: 'doc',
+  dir: 'content/docs',
+  files: ['**/*.mdx'],
+  schema: frontmatterSchema.extend({
+    author: z.string().optional()
+  }),
+  mdxOptions: {
+    remarkPlugins: []
+  },
+  postprocess: {
+    extractLinkReferences: true
+  },
+  async: false,
+  dynamic: false
+});
+```
+
+<ParamField path="type" type="'doc'" required>
+  Collection type for documents
+</ParamField>
+
+<ParamField path="dir" type="string" required>
+  Directory to scan for files
+</ParamField>
+
+<ParamField path="files" type="string[]">
+  Glob patterns for files to include (default: `**/*.{md,mdx}`)
+</ParamField>
+
+<ParamField path="schema" type="StandardSchemaV1 | ((ctx) => StandardSchemaV1)">
+  Zod schema for validating frontmatter, or function returning schema
+</ParamField>
+
+<ParamField path="mdxOptions" type="ProcessorOptions | ((environment) => Promise<ProcessorOptions>)">
+  Collection-specific MDX options
+</ParamField>
+
+<ParamField path="postprocess" type="Partial<PostprocessOptions>">
+  Post-processing configuration for extracting data
+</ParamField>
+
+<ParamField path="async" type="boolean" default="false">
+  Load files asynchronously for code splitting
+</ParamField>
+
+<ParamField path="dynamic" type="boolean" default="false">
+  Compile files on-demand at runtime
+</ParamField>
+
+### Metadata Collection
+
+```ts
+import { defineCollections, metaSchema } from 'fumadocs-mdx/config';
+
+export const meta = defineCollections({
+  type: 'meta',
+  dir: 'content/docs',
+  files: ['**/meta.json'],
+  schema: metaSchema
+});
+```
+
+<ParamField path="type" type="'meta'" required>
+  Collection type for metadata files
+</ParamField>
+
+<ParamField path="dir" type="string" required>
+  Directory to scan for metadata files
+</ParamField>
+
+<ParamField path="files" type="string[]">
+  Glob patterns (default: `**/*.{json,yaml}`)
+</ParamField>
+
+<ParamField path="schema" type="StandardSchemaV1 | ((ctx) => StandardSchemaV1)">
+  Zod schema for validation
+</ParamField>
+
+## defineDocs
+
+Defines a combined docs collection with both documents and metadata.
+
+```ts
+import { defineDocs, frontmatterSchema, metaSchema } from 'fumadocs-mdx/config';
+import { z } from 'zod';
+
+export const docs = defineDocs({
+  dir: 'content/docs',
+  docs: {
+    schema: frontmatterSchema,
+    mdxOptions: {},
+    postprocess: {}
+  },
+  meta: {
+    schema: metaSchema
+  }
+});
+```
+
+<ParamField path="dir" type="string" default="'content/docs'">
+  Base directory for both docs and meta files
+</ParamField>
+
+<ParamField path="docs" type="Omit<DocCollection, 'dir' | 'type'>">
+  Document collection configuration
+</ParamField>
+
+<ParamField path="meta" type="Omit<MetaCollection, 'dir' | 'type'>">
+  Metadata collection configuration
+</ParamField>
+
+## MDX Options
+
+### MDXPresetOptions
+
+Configure MDX processing with Fumadocs presets.
+
+```ts
+interface MDXPresetOptions {
+  preset?: 'fumadocs' | 'minimal';
+  remarkPlugins?: Pluggable[] | ((v: Pluggable[]) => Pluggable[]);
+  rehypePlugins?: Pluggable[] | ((v: Pluggable[]) => Pluggable[]);
+  valueToExport?: string[];
+  remarkStructureOptions?: StructureOptions | false;
+  remarkHeadingOptions?: RemarkHeadingOptions;
+  remarkImageOptions?: RemarkImageOptions | false;
+  remarkCodeTabOptions?: RemarkCodeTabOptions | false;
+  remarkNpmOptions?: RemarkNpmOptions | false;
+  rehypeCodeOptions?: RehypeCodeOptions | false;
+}
+```
+
+<ParamField path="preset" type="'fumadocs' | 'minimal'" default="'fumadocs'">
+  - `fumadocs`: Full plugin suite with GFM, headings, images, code highlighting
+  - `minimal`: No default plugins, bring your own
+</ParamField>
+
+<ParamField path="remarkPlugins" type="Pluggable[] | ((plugins: Pluggable[]) => Pluggable[])">
+  Remark plugins array or transform function
+</ParamField>
+
+<ParamField path="rehypePlugins" type="Pluggable[] | ((plugins: Pluggable[]) => Pluggable[])">
+  Rehype plugins array or transform function
+</ParamField>
+
+<ParamField path="valueToExport" type="string[]">
+  Additional properties from `vfile.data` to export
+</ParamField>
+
+<ParamField path="remarkStructureOptions" type="StructureOptions | false">
+  Configure structure extraction or disable with `false`
+</ParamField>
+
+<ParamField path="remarkHeadingOptions" type="RemarkHeadingOptions">
+  Heading processing configuration
+</ParamField>
+
+<ParamField path="remarkImageOptions" type="RemarkImageOptions | false">
+  Image optimization settings or `false` to disable
+</ParamField>
+
+<ParamField path="remarkCodeTabOptions" type="RemarkCodeTabOptions | false">
+  Code tab configuration
+</ParamField>
+
+<ParamField path="remarkNpmOptions" type="RemarkNpmOptions | false">
+  npm package reference options
+</ParamField>
+
+<ParamField path="rehypeCodeOptions" type="RehypeCodeOptions | false">
+  Code highlighting configuration or `false` to disable
+</ParamField>
+
+### Example: Custom Plugins
+
+```ts
+import { defineConfig } from 'fumadocs-mdx/config';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+
+export default defineConfig({
+  mdxOptions: {
+    remarkPlugins: (plugins) => [...plugins, remarkMath],
+    rehypePlugins: (plugins) => [...plugins, rehypeKatex]
+  }
+});
+```
+
+## PostprocessOptions
+
+Configure post-processing of MDX content.
+
+```ts
+interface PostprocessOptions {
+  valueToExport?: string[];
+  includeProcessedMarkdown?: boolean | {
+    headingIds?: boolean;
+  };
+  extractLinkReferences?: boolean;
+  includeMDAST?: boolean | {
+    removePosition?: boolean;
+  };
+}
+```
+
+<ParamField path="valueToExport" type="string[]">
+  Export additional properties from `vfile.data`
+</ParamField>
+
+<ParamField path="includeProcessedMarkdown" type="boolean | { headingIds?: boolean }">
+  Export processed markdown as `_markdown`. Include heading IDs with `{ headingIds: true }`
+</ParamField>
+
+<ParamField path="extractLinkReferences" type="boolean">
+  Extract link references and export as `extractedReferences`
+</ParamField>
+
+<ParamField path="includeMDAST" type="boolean | { removePosition?: boolean }">
+  Export MDAST tree as `_mdast`. Strip position info with `{ removePosition: true }`
+</ParamField>
+
+### Example: Extract Links
+
+```ts
+export const docs = defineCollections({
+  type: 'doc',
+  dir: 'content/docs',
+  postprocess: {
+    extractLinkReferences: true
+  }
+});
+```
+
+Access extracted references:
+
+```ts
+import { extractedReferences } from './page.mdx';
+// extractedReferences: Array<{ href: string }>
+```
+
+## Built-in Schemas
+
+### frontmatterSchema
+
+Default schema for page frontmatter.
+
+```ts
+import { frontmatterSchema } from 'fumadocs-mdx/config';
+import { z } from 'zod';
+
+const customSchema = frontmatterSchema.extend({
+  author: z.string(),
+  tags: z.array(z.string()).default([])
+});
+```
+
+### metaSchema
+
+Default schema for metadata files.
+
+```ts
+import { metaSchema } from 'fumadocs-mdx/config';
+```
+
+## Collection Types
+
+### DocCollection
+
+```ts
+interface DocCollection<Schema extends StandardSchemaV1 = StandardSchemaV1> {
+  type: 'doc';
+  dir: string;
+  files?: string[];
+  postprocess?: Partial<PostprocessOptions>;
+  mdxOptions?: ProcessorOptions | ((environment: BuildEnvironment) => Promise<ProcessorOptions>);
+  async?: boolean;
+  dynamic?: boolean;
+  schema?: CollectionSchema<Schema, { path: string; source: string }>;
+}
+```
+
+### MetaCollection
+
+```ts
+interface MetaCollection<Schema extends StandardSchemaV1 = StandardSchemaV1> {
+  type: 'meta';
+  dir: string;
+  files?: string[];
+  schema?: CollectionSchema<Schema, { path: string; source: string }>;
+}
+```
+
+### DocsCollection
+
+```ts
+interface DocsCollection<
+  DocSchema extends StandardSchemaV1 = StandardSchemaV1,
+  MetaSchema extends StandardSchemaV1 = StandardSchemaV1
+> {
+  type: 'docs';
+  dir: string;
+  docs: DocCollection<DocSchema>;
+  meta: MetaCollection<MetaSchema>;
+}
+```
+
+## Workspaces
+
+Configure multiple content sources in a monorepo:
+
+```ts
+import { defineConfig, defineDocs } from 'fumadocs-mdx/config';
+
+export default defineConfig({
+  workspaces: {
+    blog: {
+      dir: 'packages/blog',
+      config: {
+        posts: defineDocs({ dir: 'content' })
+      }
+    },
+    docs: {
+      dir: 'packages/docs',
+      config: {
+        guides: defineDocs({ dir: 'content/guides' })
+      }
+    }
+  }
+});
+```
+
+Access workspace collections:
+
+```ts
+import page from './content/page.mdx?collection=posts&workspace=blog';
+```
+
+## Environment Configuration
+
+MDX options can adapt to the build environment:
+
+```ts
+export const docs = defineCollections({
+  type: 'doc',
+  dir: 'content/docs',
+  mdxOptions: async (environment) => {
+    // environment: 'bundler' | 'runtime'
+    return {
+      remarkPlugins: environment === 'bundler'
+        ? [/* bundler-specific plugins */]
+        : [/* runtime plugins */]
+    };
+  }
+});
+```

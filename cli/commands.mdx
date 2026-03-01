@@ -1,0 +1,620 @@
+---
+title: 'CLI Commands'
+description: 'Complete reference for all Fumadocs CLI commands, flags, and options'
+icon: 'code'
+---
+
+## Global Options
+
+All commands support the following global option:
+
+### `--config`
+
+Specify a custom path to the CLI configuration file.
+
+```bash
+npx fumadocs --config ./custom-cli.json
+```
+
+**Default**: `./cli.json`
+
+## `fumadocs`
+
+Initialize a new CLI configuration file in your project.
+
+```bash
+npx fumadocs
+```
+
+### Behavior
+
+- Creates a `cli.json` file in the current directory
+- Automatically detects if your project uses a `src` directory
+- Skips creation if a configuration file already exists
+- Provides sensible defaults based on project structure
+
+### Example Output
+
+**Success:**
+```bash
+Initialized a `./cli.json` config file.
+```
+
+**When config exists:**
+```bash
+A config file already exists.
+```
+
+### Generated Configuration
+
+<AccordionGroup>
+  <Accordion title="Without src directory">
+    ```json cli.json
+    {
+      "$schema": "node_modules/@fumadocs/cli/dist/schema/default.json",
+      "aliases": {
+        "uiDir": "./components/ui",
+        "componentsDir": "./components",
+        "blockDir": "./components",
+        "cssDir": "./styles",
+        "libDir": "./lib"
+      },
+      "baseDir": "",
+      "uiLibrary": "radix-ui",
+      "commands": {}
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="With src directory">
+    ```json cli.json
+    {
+      "$schema": "node_modules/@fumadocs/cli/dist/schema/src.json",
+      "aliases": {
+        "uiDir": "./components/ui",
+        "componentsDir": "./components",
+        "blockDir": "./components",
+        "cssDir": "./styles",
+        "libDir": "./lib"
+      },
+      "baseDir": "src",
+      "uiLibrary": "radix-ui",
+      "commands": {}
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## `fumadocs add`
+
+Install components from the Fumadocs registry.
+
+```bash
+npx fumadocs add [components...] [options]
+```
+
+### Arguments
+
+#### `[components...]`
+
+One or more component names to install. If omitted, launches an interactive component picker.
+
+```bash
+# Install specific components
+npx fumadocs add search-algolia banner
+
+# Interactive mode
+npx fumadocs add
+```
+
+### Options
+
+#### `--dir <string>`
+
+Specify the registry URL or local directory to resolve components from.
+
+```bash
+# Use remote registry
+npx fumadocs add search-algolia --dir https://fumadocs.dev/registry
+
+# Use local registry
+npx fumadocs add my-component --dir ./local-registry
+
+# Use preview registry
+npx fumadocs add search-algolia --dir :preview
+```
+
+**Default**: `https://fumadocs.dev/registry`
+
+**Supported shortcuts:**
+- `:preview` → `https://preview.fumadocs.dev/registry`
+- `:dev` → `http://localhost:3000/registry`
+
+### Interactive Mode
+
+When no components are specified, the CLI launches an interactive picker:
+
+```bash
+npx fumadocs add
+```
+
+**Features:**
+- Browse all available components from your configured registry
+- View component descriptions and titles
+- Multi-select components to install
+- Autocomplete search functionality
+- Shows components from both main and UI-specific registries
+
+### Installation Flow
+
+<Steps>
+  <Step title="Component Selection">
+    The CLI fetches the registry and displays available components with descriptions.
+  </Step>
+  
+  <Step title="Dependency Resolution">
+    Automatically resolves and downloads sub-components and dependencies.
+  </Step>
+  
+  <Step title="File Installation">
+    Downloads component files to configured directories:
+    - UI components → `componentsDir/ui`
+    - Regular components → `componentsDir`
+    - Library utilities → `libDir`
+    - Styles → `cssDir`
+    - Routes → project root
+  </Step>
+  
+  <Step title="Conflict Resolution">
+    Prompts for confirmation before overwriting existing files.
+  </Step>
+  
+  <Step title="Dependency Installation">
+    Offers to install required npm packages using your package manager.
+  </Step>
+</Steps>
+
+### Example Output
+
+```bash
+$ npx fumadocs add search-algolia
+
+Installing search-algolia
+components/ui/search-algolia.tsx
+lib/search-client.ts
+search-algolia installed
+
+┌  New Dependencies
+│
+│  algoliasearch@5.0.0
+│  @algolia/client-search@5.0.0
+│
+└
+
+? Do you want to install with pnpm? › (Y/n)
+
+Installing dependencies
+Dependencies installed
+
+✔ Successful
+```
+
+### Component Namespaces
+
+Components can be prefixed with a namespace to access UI-specific variants:
+
+```bash
+# Install from Radix UI registry
+npx fumadocs add fumadocs/radix-ui/search
+
+# Install from Base UI registry  
+npx fumadocs add fumadocs/base-ui/search
+```
+
+The CLI automatically determines the correct namespace based on your `uiLibrary` configuration.
+
+---
+
+## `fumadocs customise`
+
+Interactively customize Fumadocs UI layouts.
+
+```bash
+npx fumadocs customise [options]
+```
+
+<Note>
+  Also available as `fumadocs customize` (American spelling).
+</Note>
+
+### Options
+
+#### `--dir <string>`
+
+Specify the registry directory or URL.
+
+```bash
+npx fumadocs customise --dir :preview
+```
+
+**Default**: `https://fumadocs.dev/registry`
+
+### Interactive Workflow
+
+The command guides you through a two-step process:
+
+<Steps>
+  <Step title="Choose Layout Type">
+    Select which layout to customize:
+    
+    - **Docs Layout**: Main UI for documentation pages
+    - **Home Layout**: Navbar for landing and other pages
+  </Step>
+  
+  <Step title="Select Variant">
+    Choose a starting variant (for Docs Layout only):
+    
+    - **Minimal**: Bare-bones structure for building from scratch
+    - **Default**: Standard Fumadocs layout
+    - **Notebook**: Notebook-style layout
+    - **Flux**: Modern Flux layout variant
+  </Step>
+</Steps>
+
+### Example Session
+
+```bash
+$ npx fumadocs customise
+
+┌  Customise Fumadocs UI
+│
+◆  What do you want to customise?
+│  ● Docs Layout - main UI of your docs
+│  ○ Home Layout - the navbar for your other pages
+└
+
+◆  Which variant do you want to start from?
+│  ○ Start from minimal styles - for those who want to build their own variant from ground up.
+│  ● Start from default layout - useful for adjusting small details.
+│  ○ Start from Notebook layout - useful for adjusting small details.
+│  ○ Start from Flux layout - useful for adjusting small details.
+└
+
+Installing fumadocs/radix-ui/layouts/docs
+components/layout/docs.tsx
+components/layout/docs/page.tsx
+fumadocs/radix-ui/layouts/docs installed
+
+✔ Successful
+
+┌  What is Next?
+│
+│  You can check the installed components in `components`.
+│  ---
+│  Open your `layout.tsx` files, replace the imports of components:
+│  "fumadocs-ui/layouts/docs" -> "@/components/layout/docs"
+│  "fumadocs-ui/layouts/docs/page" -> "@/components/layout/docs/page"
+│
+└
+
+◆  Have fun!
+```
+
+### Layout Variants
+
+<AccordionGroup>
+  <Accordion title="Docs Layout - Minimal">
+    **Component**: `fumadocs/ui/layouts/docs-min`
+    
+    **Description**: Bare-bones layout structure with minimal styling. Perfect for building custom layouts from the ground up.
+    
+    **Import replacements:**
+    - `fumadocs-ui/layouts/docs` → `@/components/layout/docs`
+    - `fumadocs-ui/layouts/docs/page` → `@/components/layout/docs/page`
+  </Accordion>
+  
+  <Accordion title="Docs Layout - Default">
+    **Component**: `fumadocs/radix-ui/layouts/docs` or `fumadocs/base-ui/layouts/docs`
+    
+    **Description**: Standard Fumadocs layout with sidebar, table of contents, and search.
+    
+    **Import replacements:**
+    - `fumadocs-ui/layouts/docs` → `@/components/layout/docs`
+    - `fumadocs-ui/layouts/docs/page` → `@/components/layout/docs/page`
+  </Accordion>
+  
+  <Accordion title="Docs Layout - Notebook">
+    **Component**: `fumadocs/radix-ui/layouts/notebook` or `fumadocs/base-ui/layouts/notebook`
+    
+    **Description**: Notebook-style layout with centered content and elegant spacing.
+    
+    **Import replacements:**
+    - `fumadocs-ui/layouts/notebook` → `@/components/layout/notebook`
+    - `fumadocs-ui/layouts/notebook/page` → `@/components/layout/notebook/page`
+  </Accordion>
+  
+  <Accordion title="Docs Layout - Flux">
+    **Component**: `fumadocs/radix-ui/layouts/flux` or `fumadocs/base-ui/layouts/flux`
+    
+    **Description**: Modern Flux layout with enhanced visual hierarchy.
+    
+    **Import replacements:**
+    - `fumadocs-ui/layouts/flux` → `@/components/layout/flux`
+    - `fumadocs-ui/layouts/flux/page` → `@/components/layout/flux/page`
+  </Accordion>
+  
+  <Accordion title="Home Layout">
+    **Component**: `fumadocs/radix-ui/layouts/home` or `fumadocs/base-ui/layouts/home`
+    
+    **Description**: Navigation bar for landing pages and non-documentation pages.
+    
+    **Import replacements:**
+    - `fumadocs-ui/layouts/home` → `@/components/layout/home`
+  </Accordion>
+</AccordionGroup>
+
+### Post-Installation Steps
+
+After customizing a layout:
+
+1. Open your root layout file (e.g., `app/layout.tsx` or `app/docs/layout.tsx`)
+2. Replace the Fumadocs UI imports with your local component paths
+3. Customize the components in the `components/layout/` directory
+
+**Before:**
+```tsx app/docs/layout.tsx
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+import { DocsPage } from 'fumadocs-ui/layouts/docs/page';
+```
+
+**After:**
+```tsx app/docs/layout.tsx
+import { DocsLayout } from '@/components/layout/docs';
+import { DocsPage } from '@/components/layout/docs/page';
+```
+
+---
+
+## `fumadocs tree`
+
+Generate file tree components from directory structures.
+
+```bash
+npx fumadocs tree [json_or_args] [output] [options]
+```
+
+### Arguments
+
+#### `[json_or_args]`
+
+Either:
+- JSON output from the `tree` command
+- Arguments to pass to the `tree` command (defaults to `./`)
+
+#### `[output]`
+
+Output file path. If omitted, prints to stdout.
+
+### Options
+
+#### `--js`
+
+Output as a JavaScript/TypeScript file instead of MDX.
+
+```bash
+npx fumadocs tree ./src components/file-tree.tsx --js
+```
+
+#### `--no-root`
+
+Remove the root directory node from the output.
+
+```bash
+npx fumadocs tree ./src --no-root
+```
+
+#### `--import-name <name>`
+
+Customize the import path for JavaScript output (only with `--js`).
+
+```bash
+npx fumadocs tree ./src output.tsx --js --import-name @/components/ui/files
+```
+
+**Default**: `fumadocs-ui/components/files`
+
+### Prerequisites
+
+The `tree` command must be installed on your system:
+
+```bash
+# macOS
+brew install tree
+
+# Ubuntu/Debian
+sudo apt-get install tree
+
+# Windows (via Chocolatey)
+choco install tree
+```
+
+### Usage Examples
+
+<CodeGroup>
+```bash Generate MDX
+# Generate file tree as MDX and print to console
+npx fumadocs tree ./src
+
+# Save to file
+npx fumadocs tree ./src docs/file-tree.mdx
+```
+
+```bash Generate JavaScript
+# Generate as TypeScript component
+npx fumadocs tree ./src components/file-tree.tsx --js
+
+# Remove root directory
+npx fumadocs tree ./src components/file-tree.tsx --js --no-root
+```
+
+```bash From JSON
+# Use existing tree JSON output
+tree ./src --gitignore --prune -J > tree.json
+npx fumadocs tree "$(cat tree.json)" output.mdx
+```
+
+```bash Custom Import
+# Use custom import path
+npx fumadocs tree ./src output.tsx --js --import-name @/components/ui/files
+```
+</CodeGroup>
+
+### Output Formats
+
+<Tabs>
+  <Tab title="MDX Output">
+    **Generated MDX:**
+    ```mdx
+    <Files>
+    <Folder name="src">
+    <Folder name="app">
+    <File name="layout.tsx" />
+    <File name="page.tsx" />
+    </Folder>
+    <Folder name="components">
+    <File name="button.tsx" />
+    <File name="card.tsx" />
+    </Folder>
+    </Folder>
+    </Files>
+    ```
+    
+    **Rendered in docs:**
+    - Displays as an interactive file tree
+    - Folders are collapsible
+    - Uses Fumadocs UI styling
+  </Tab>
+  
+  <Tab title="JavaScript Output">
+    **Generated TypeScript:**
+    ```tsx file-tree.tsx
+    import { File, Files, Folder } from 'fumadocs-ui/components/files'
+    
+    export default (
+      <Files>
+      <Folder name="src">
+      <Folder name="app">
+      <File name="layout.tsx" />
+      <File name="page.tsx" />
+      </Folder>
+      <Folder name="components">
+      <File name="button.tsx" />
+      <File name="card.tsx" />
+      </Folder>
+      </Folder>
+      </Files>
+    )
+    ```
+    
+    **Usage:**
+    ```tsx
+    import FileTree from '@/components/file-tree';
+    
+    export default function Page() {
+      return <div>{FileTree}</div>;
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Advanced Examples
+
+<AccordionGroup>
+  <Accordion title="Generate from specific directory">
+    ```bash
+    # Generate tree for docs folder only
+    npx fumadocs tree ./docs/content docs/structure.mdx
+    ```
+  </Accordion>
+  
+  <Accordion title="Collapse single-child directories">
+    The CLI automatically collapses directories with only one child:
+    
+    ```mdx
+    <!-- Input structure: src/app/page.tsx -->
+    <Files>
+    <File name="src/app/page.tsx" />
+    </Files>
+    
+    <!-- Instead of: -->
+    <Files>
+    <Folder name="src">
+    <Folder name="app">
+    <File name="page.tsx" />
+    </Folder>
+    </Folder>
+    </Files>
+    ```
+  </Accordion>
+  
+  <Accordion title="Exclude node_modules and git files">
+    The `tree` command automatically runs with `--gitignore` and `--prune` flags to exclude:
+    - Files in `.gitignore`
+    - Empty directories
+    - Git metadata
+    
+    This is handled automatically by the CLI.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Command Aliases
+
+| Command | Alias |
+|---------|-------|
+| `fumadocs customise` | `fumadocs customize` |
+
+---
+
+## Exit Codes
+
+| Code | Description |
+|------|-------------|
+| `0` | Success |
+| `-1` | Installation error or component not found |
+| `0` (after cancel) | User cancelled operation |
+
+---
+
+## Tips and Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use interactive mode for discovery">
+    When you're not sure which components are available, use interactive mode:
+    
+    ```bash
+    npx fumadocs add
+    ```
+    
+    This shows all available components with descriptions.
+  </Accordion>
+  
+  <Accordion title="Test with preview registry">
+    Before using new components in production, test them from the preview registry:
+    
+    ```bash
+    npx fumadocs add new-component --dir :preview
+    ```
+  </Accordion>
+  
+  <Accordion title="Customize before customizing">
+    Use `fumadocs customise` instead of manually copying files to ensure you get all dependencies and proper import paths.
+  </Accordion>
+  
+  <Accordion title="Version control your cli.json">
+    Commit your `cli.json` to version control so team members have consistent component installation paths.
+  </Accordion>
+</AccordionGroup>

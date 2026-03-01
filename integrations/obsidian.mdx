@@ -1,0 +1,493 @@
+---
+title: Obsidian
+description: Integrate your Obsidian vaults with Fumadocs
+---
+
+Import and render your Obsidian vault notes in Fumadocs. This integration converts Obsidian-specific syntax to MDX, handles wiki links, embeds, and maintains your vault structure.
+
+<Callout type="warn" title="Experimental">
+  This integration is experimental and may have bugs or breaking changes. Use at your own risk.
+</Callout>
+
+## Installation
+
+```package-install
+fumadocs-obsidian
+```
+
+## Setup
+
+### Copy Your Vault
+
+Copy your Obsidian vault folder to your project directory:
+
+```
+project/
+├── Obsidian Vault/
+│   ├── Introduction.md
+│   ├── Getting Started.md
+│   └── Guides/
+│       └── Hello World.md
+├── content/
+├── app/
+└── package.json
+```
+
+### Generate Documentation
+
+Create a script to convert vault files to Fumadocs-compatible format:
+
+```ts title="scripts/generate-vault.ts"
+import { fromVault } from 'fumadocs-obsidian';
+
+await fromVault({
+  // Path to your Obsidian vault
+  dir: 'Obsidian Vault',
+  
+  // Optional: customize output locations
+  out: {
+    contentDir: 'content/docs/vault',
+    publicDir: 'public',
+  },
+});
+```
+
+Run the script:
+
+```bash
+bun scripts/generate-vault.ts
+```
+
+This will:
+- Convert all Markdown files to MDX
+- Process Obsidian wiki links
+- Extract and copy embedded images and assets
+- Generate frontmatter for each page
+
+### Add MDX Components
+
+Include Obsidian-specific components in your MDX setup:
+
+```tsx title="mdx-components.tsx"
+import defaultMdxComponents from 'fumadocs-ui/mdx';
+import * as ObsidianComponents from 'fumadocs-obsidian/ui';
+import type { MDXComponents } from 'mdx/types';
+
+export function getMDXComponents(components?: MDXComponents) {
+  return {
+    ...defaultMdxComponents,
+    ...ObsidianComponents,
+    ...components,
+  };
+}
+```
+
+## MDX Plugin Integration
+
+For real-time conversion during development, use the remark plugin:
+
+```ts title="source.config.ts"
+import { defineConfig, defineDocs } from 'fumadocs-mdx/config';
+import { remarkObsidian, RemarkObsidianOptions } from 'fumadocs-obsidian/mdx';
+import { readVaultFiles } from 'fumadocs-obsidian';
+import { pageSchema } from 'fumadocs-core/source/schema';
+
+export const docs = defineDocs({
+  dir: 'content/docs',
+  docs: {
+    schema: pageSchema.partial(),
+  },
+});
+
+export default defineConfig({
+  mdxOptions: async () => {
+    const files = await readVaultFiles({
+      dir: 'content/docs/Obsidian Vault',
+    });
+
+    return {
+      remarkPlugins: (plugins) => [
+        [
+          remarkObsidian,
+          {
+            files,
+          } satisfies RemarkObsidianOptions,
+        ],
+        ...plugins,
+      ],
+    };
+  },
+});
+```
+
+## Supported Obsidian Features
+
+### Wiki Links
+
+Obsidian wiki links are automatically converted:
+
+```md
+[[Page Name]]
+[[Page Name|Custom Text]]
+[[Folder/Page Name]]
+```
+
+Becomes:
+
+```md
+[Page Name](/docs/page-name)
+[Custom Text](/docs/page-name)
+[Page Name](/docs/folder/page-name)
+```
+
+### Embeds
+
+Embed other notes or images:
+
+```md
+![[Another Note]]
+![[image.png]]
+![[document.pdf]]
+```
+
+The integration will:
+- Extract embedded note content inline
+- Copy images to the public directory
+- Handle asset references correctly
+
+### Block References
+
+Reference specific blocks in notes:
+
+```md
+![[Note Name#^block-id]]
+```
+
+Block IDs are preserved:
+
+```md
+Some content ^block-id
+```
+
+### Callouts
+
+Obsidian callouts are converted to Fumadocs callouts:
+
+```md
+> [!note]
+> This is a note callout
+
+> [!warning] Custom Title
+> This is a warning with custom title
+
+> [!tip]- Foldable Callout
+> This callout can be collapsed
+```
+
+Becomes:
+
+```mdx
+<Callout type="info">
+  This is a note callout
+</Callout>
+
+<Callout type="warn" title="Custom Title">
+  This is a warning with custom title
+</Callout>
+
+<Callout type="info" title="Foldable Callout" collapsible>
+  This callout can be collapsed
+</Callout>
+```
+
+### Tags
+
+Obsidian tags are preserved in frontmatter:
+
+```md
+#documentation #guide #api
+```
+
+Becomes:
+
+```yaml
+---
+tags: [documentation, guide, api]
+---
+```
+
+### Comments
+
+Obsidian comments are removed during conversion:
+
+```md
+%% This is a comment %%
+```
+
+## Advanced Configuration
+
+### Custom Output Paths
+
+```ts title="scripts/generate-vault.ts"
+import { fromVault } from 'fumadocs-obsidian';
+
+await fromVault({
+  dir: 'Obsidian Vault',
+  out: {
+    // Content directory for MDX files
+    contentDir: 'content/docs/vault',
+    
+    // Public directory for assets
+    publicDir: 'public/vault-assets',
+  },
+});
+```
+
+### Conversion Options
+
+```ts title="scripts/generate-vault.ts"
+import { fromVault } from 'fumadocs-obsidian';
+import remarkGfm from 'remark-gfm';
+
+await fromVault({
+  dir: 'Obsidian Vault',
+  convert: {
+    // Add custom remark plugins
+    remarkPlugins: [remarkGfm],
+    
+    // Transform frontmatter
+    transformFrontmatter: (frontmatter, { file }) => ({
+      ...frontmatter,
+      // Add custom fields
+      source: 'obsidian',
+      lastModified: new Date().toISOString(),
+    }),
+  },
+});
+```
+
+### Reading Vault Files
+
+```ts
+import { readVaultFiles } from 'fumadocs-obsidian';
+
+const files = await readVaultFiles({
+  dir: 'Obsidian Vault',
+  // Optional: filter files
+  include: ['**/*.md'],
+});
+
+// Process files manually
+for (const file of files) {
+  console.log(file.path);
+  console.log(file.content);
+}
+```
+
+### Converting Files
+
+```ts
+import { readVaultFiles, convertVaultFiles } from 'fumadocs-obsidian';
+
+const rawFiles = await readVaultFiles({
+  dir: 'Obsidian Vault',
+});
+
+const converted = await convertVaultFiles(rawFiles, {
+  remarkPlugins: [],
+  transformFrontmatter: (frontmatter) => ({
+    ...frontmatter,
+    layout: 'docs',
+  }),
+});
+
+// Each converted file has:
+// - type: 'asset' | 'content' | 'data'
+// - path: output path
+// - content: file content
+```
+
+### Custom Storage
+
+Control how files are organized:
+
+```ts
+import { convertVaultFiles } from 'fumadocs-obsidian';
+
+const converted = await convertVaultFiles(files, {
+  // Customize file paths and structure
+  mapOutPath: (file) => {
+    // Custom path mapping logic
+    return file.path.replace(/\.md$/, '.mdx');
+  },
+});
+```
+
+## Additional Features
+
+Some Obsidian features require additional setup:
+
+### Math Equations
+
+Obsidian uses LaTeX math equations. Enable math support:
+
+```ts title="source.config.ts"
+import { defineConfig } from 'fumadocs-mdx/config';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+
+export default defineConfig({
+  mdxOptions: {
+    remarkPlugins: [remarkMath],
+    rehypePlugins: [rehypeKatex],
+  },
+});
+```
+
+Add KaTeX CSS:
+
+```tsx title="app/layout.tsx"
+import 'katex/dist/katex.min.css';
+```
+
+See [Math documentation](/docs/markdown/math) for details.
+
+### Mermaid Diagrams
+
+Enable Mermaid diagram support:
+
+```ts title="source.config.ts"
+import { defineConfig } from 'fumadocs-mdx/config';
+import { remarkMermaid } from 'fumadocs-core/mdx-plugins';
+
+export default defineConfig({
+  mdxOptions: {
+    remarkPlugins: [remarkMermaid],
+  },
+});
+```
+
+See [Mermaid documentation](/docs/markdown/mermaid) for details.
+
+## File Structure Example
+
+Input vault structure:
+
+```
+Obsidian Vault/
+├── Introduction.md
+├── Getting Started.md
+├── Guides/
+│   ├── Installation.md
+│   └── Configuration.md
+├── Assets/
+│   ├── logo.png
+│   └── diagram.svg
+└── .obsidian/
+    └── config
+```
+
+Generated output:
+
+```
+content/docs/vault/
+├── introduction.mdx
+├── getting-started.mdx
+└── guides/
+    ├── installation.mdx
+    └── configuration.mdx
+
+public/
+└── vault-assets/
+    ├── logo.png
+    └── diagram.svg
+```
+
+## Best Practices
+
+1. **Regenerate regularly**: Run the generation script when vault content changes
+2. **Use relative paths**: Keep assets in your vault for proper conversion
+3. **Avoid special characters**: Use simple file names for better URL structure
+4. **Test wiki links**: Ensure all internal links resolve correctly
+5. **Version control vault**: Keep your vault in git to track changes
+6. **Separate vaults**: Consider a documentation-specific vault separate from personal notes
+7. **Review generated files**: Check converted MDX files for any issues
+
+## Workflow Tips
+
+### Development Workflow
+
+1. Edit notes in Obsidian
+2. Run generation script: `bun scripts/generate-vault.ts`
+3. Review changes in git
+4. Commit and deploy
+
+### Automation
+
+Add a watch script for development:
+
+```json title="package.json"
+{
+  "scripts": {
+    "vault:generate": "bun scripts/generate-vault.ts",
+    "vault:watch": "chokidar 'Obsidian Vault/**/*.md' -c 'bun vault:generate'",
+    "dev": "concurrently 'next dev' 'bun vault:watch'"
+  }
+}
+```
+
+### CI/CD Integration
+
+Generate docs during build:
+
+```yaml title=".github/workflows/deploy.yml"
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+      
+      - name: Install dependencies
+        run: bun install
+      
+      - name: Generate vault docs
+        run: bun scripts/generate-vault.ts
+      
+      - name: Build
+        run: bun run build
+```
+
+## Limitations
+
+- Dataview queries are not supported
+- Canvas files are not converted
+- Plugins and custom Obsidian features won't work
+- Templates must be processed manually
+- Graph view is not available
+
+## Troubleshooting
+
+### Links not resolving
+
+Ensure your vault uses consistent file naming. Spaces in file names are automatically converted to hyphens in URLs.
+
+### Assets not loading
+
+Check that assets are within your vault directory and not using absolute paths.
+
+### Frontmatter conflicts
+
+Obsidian frontmatter is merged with generated frontmatter. Ensure no duplicate keys exist.
+
+### Special characters in file names
+
+Avoid special characters in file names. Use alphanumeric characters and hyphens.

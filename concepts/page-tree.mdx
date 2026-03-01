@@ -1,0 +1,587 @@
+---
+title: Page Tree
+description: Understanding the page tree structure and how Fumadocs builds navigation hierarchies
+---
+
+## Overview
+
+The page tree is a hierarchical data structure that represents the navigation and organization of your documentation. It's generated from your content sources and powers sidebars, breadcrumbs, and navigation components.
+
+## Tree Structure
+
+The page tree consists of four node types:
+
+```typescript packages/core/src/page-tree/definitions.ts
+export interface Root {
+  $id?: string;
+  name: ReactNode;
+  children: Node[];
+  fallback?: Root; // Fallback tree for missing translations
+}
+
+export type Node = Item | Separator | Folder;
+```
+
+### Node Types
+
+<Tabs>
+  <Tab title="Item (Page)">
+    ```typescript
+    export interface Item {
+      $id?: string;
+      type: 'page';
+      name: ReactNode;
+      url: string;
+      external?: boolean;
+      description?: ReactNode;
+      icon?: ReactNode;
+      
+      // Internal reference to source file
+      $ref?: { file: string };
+    }
+    ```
+    
+    Represents a navigable page in your documentation.
+  </Tab>
+  
+  <Tab title="Folder">
+    ```typescript
+    export interface Folder {
+      $id?: string;
+      type: 'folder';
+      name: ReactNode;
+      children: Node[];
+      
+      // Folder-specific properties
+      root?: boolean;
+      defaultOpen?: boolean;
+      collapsible?: boolean;
+      index?: Item;
+      description?: ReactNode;
+      icon?: ReactNode;
+      
+      // Internal reference
+      $ref?: { metaFile?: string };
+    }
+    ```
+    
+    Represents a collapsible section containing other nodes.
+  </Tab>
+  
+  <Tab title="Separator">
+    ```typescript
+    export interface Separator {
+      $id?: string;
+      type: 'separator';
+      name?: ReactNode;
+      icon?: ReactNode;
+    }
+    ```
+    
+    Visual separator between navigation sections.
+  </Tab>
+</Tabs>
+
+## Page Tree Builder
+
+The `PageTreeBuilder` class generates page trees from content storage:
+
+```typescript packages/core/src/source/page-tree/builder.ts
+export class PageTreeBuilder {
+  private readonly storage: ContentStorage;
+  private readonly transformers: PageTreeTransformer[];
+  private readonly pathToNode = new Map<string, PageTree.Node>();
+
+  constructor(
+    input: ContentStorage | [locale: string, storages: Record<string, ContentStorage>],
+    options: PageTreeOptions,
+  ) {
+    this.storage = Array.isArray(input) ? input[1][input[0]] : input;
+    this.transformers = options.transformers ?? [];
+  }
+
+  root(id = 'root', path = ''): PageTree.Root {
+    const folder = this.folder(path);
+    let root: PageTree.Root = {
+      $id: this.generateId(id),
+      name: folder?.name || 'Docs',
+      children: folder ? folder.children : [],
+    };
+
+    for (const transformer of this.transformers) {
+      if (transformer.root) root = transformer.root.call(this.ctx, root);
+    }
+
+    return root;
+  }
+}
+```
+
+<Note>
+The builder uses caching to avoid regenerating nodes, improving performance during incremental builds.
+</Note>
+
+## Building Process
+
+<Steps>
+  <Step title="Scan Files">
+    The builder scans the virtual file system to discover all pages and meta files.
+  </Step>
+  <Step title="Build Nodes">
+    Each file is transformed into a page tree node (Item, Folder, or Separator).
+  </Step>
+  <Step title="Resolve Hierarchy">
+    Nodes are organized into a tree based on file paths and meta file configuration.
+  </Step>
+  <Step title="Apply Transformers">
+    Plugin transformers modify the tree (e.g., adding fallback locales, icons).
+  </Step>
+  <Step title="Generate IDs">
+    Unique IDs are assigned to each node for React keys and tracking.
+  </Step>
+</Steps>
+
+## Folder Building
+
+Folders are built recursively from directory structure:
+
+```typescript packages/core/src/source/page-tree/builder.ts
+folder(folderPath: string): PageTree.Folder | undefined {
+  const files = this.storage.readDir(folderPath);
+  if (!files) return;
+
+  const metaPath = this.resolveFlattenPath(joinPath(folderPath, 'meta'), 'meta');
+  const indexPath = this.resolveFlattenPath(joinPath(folderPath, 'index'), 'page');
+  let meta = this.storage.read(metaPath);
+
+  const metadata = meta?.data ?? {};
+  let node: PageTree.Folder = {
+    type: 'folder',
+    name: metadata.title ?? pathToName(basename(folderPath)),
+    root: metadata.root,
+    defaultOpen: metadata.defaultOpen,
+    collapsible: metadata.collapsible,
+    children: [],
+  };
+
+  // Set index page if not a root folder
+  if (!metadata.root) {
+    const file = this.file(indexPath);
+    if (file) node.index = file;
+  }
+
+  // Build children based on meta.pages or auto-discovery
+  if (metadata.pages) {
+    this.buildFromMetaPages(folderPath, metadata.pages, node);
+  } else {
+    this.autoDiscoverChildren(folderPath, files, node);
+  }
+
+  return node;
+}
+```
+
+### Auto-Discovery
+
+Without a meta file, pages are automatically discovered and sorted alphabetically:
+
+```typescript
+docs/
+  api.mdx          -> appears 1st
+  getting-started.mdx -> appears 2nd
+  reference.mdx    -> appears 3rd
+```
+
+### Manual Ordering
+
+Use meta files to control order:
+
+```json meta.json
+{
+  "title": "Documentation",
+  "pages": [
+    "getting-started",
+    "api",
+    "reference"
+  ]
+}
+```
+
+## Special Patterns
+
+Meta files support powerful ordering patterns:
+
+### Rest Operator
+
+Include all remaining files:
+
+```json
+{
+  "pages": [
+    "introduction",  // First
+    "...",          // All other files alphabetically
+    "changelog"     // Last
+  ]
+}
+```
+
+### Reverse Rest
+
+Include files in reverse order:
+
+```json
+{
+  "pages": [
+    "z...a"  // All files, Z to A
+  ]
+}
+```
+
+### Extract Folder
+
+Inline a folder's children:
+
+```json
+{
+  "pages": [
+    "overview",
+    "...advanced"  // Extracts children of 'advanced' folder
+  ]
+}
+```
+
+<Warning>
+Extracted folders won't appear as separate collapsible sections - their children are promoted to the parent level.
+</Warning>
+
+### Exclude Files
+
+Exclude specific files from auto-discovery:
+
+```json
+{
+  "pages": [
+    "...",
+    "!internal",  // Exclude internal.mdx
+    "!draft"      // Exclude draft.mdx
+  ]
+}
+```
+
+## Links and Separators
+
+Add external links and visual separators:
+
+```json
+{
+  "pages": [
+    "getting-started",
+    "---Guides",  // Separator with label
+    "tutorials",
+    "examples",
+    "---",  // Separator without label
+    "[GitHub](https://github.com/fumadocs/fumadocs)",  // External link
+    "external:https://fumadocs.dev"  // External link (shorter syntax)
+  ]
+}
+```
+
+### Link Syntax
+
+<CodeGroup>
+```text Basic Link
+[Link Text](https://example.com)
+```
+
+```text Link with Icon
+[github-icon][GitHub](https://github.com/user/repo)
+```
+
+```text External Link
+external:https://example.com
+external:[icon-name][Link Text](https://example.com)
+```
+</CodeGroup>
+
+## Root Folders
+
+Mark folders as "root" to create top-level navigation sections:
+
+```json
+{
+  "title": "API Reference",
+  "root": true
+}
+```
+
+Root folders appear at the top level of navigation, even when nested in the file structure:
+
+```
+docs/
+  getting-started/
+    introduction.mdx
+  api/
+    meta.json (root: true)
+    endpoints.mdx
+```
+
+Results in:
+
+```
+Docs
+├─ Getting Started
+│  └─ Introduction
+API Reference  (separate root)
+└─ Endpoints
+```
+
+## Index Pages
+
+Folders can have index pages that represent the folder itself:
+
+```
+guides/
+  index.mdx      # Index page for the "Guides" folder
+  tutorial.mdx
+  examples.mdx
+```
+
+<Tabs>
+  <Tab title="Non-Root Folder">
+    The index page is shown as the folder's landing page. When users click the folder, they navigate to the index page.
+    
+    ```typescript
+    {
+      type: 'folder',
+      name: 'Guides',
+      index: { type: 'page', name: 'Overview', url: '/guides' },
+      children: [
+        { type: 'page', name: 'Tutorial', url: '/guides/tutorial' },
+        { type: 'page', name: 'Examples', url: '/guides/examples' },
+      ]
+    }
+    ```
+  </Tab>
+  <Tab title="Root Folder">
+    Index pages are NOT shown for root folders. Root folders are organizational containers.
+    
+    ```typescript
+    {
+      type: 'folder',
+      name: 'API',
+      root: true,
+      index: undefined,  // Not used for root folders
+      children: [
+        { type: 'page', name: 'Endpoints', url: '/api/endpoints' },
+      ]
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Utility Functions
+
+Fumadocs provides utilities for working with page trees:
+
+### Flatten Tree
+
+```typescript packages/core/src/page-tree/utils.ts
+export function flattenTree(nodes: PageTree.Node[]): PageTree.Item[] {
+  const out: PageTree.Item[] = [];
+
+  for (const node of nodes) {
+    if (node.type === 'folder') {
+      if (node.index) out.push(node.index);
+      out.push(...flattenTree(node.children));
+    } else if (node.type === 'page') {
+      out.push(node);
+    }
+  }
+
+  return out;
+}
+```
+
+### Find Neighbors
+
+Useful for "Previous" and "Next" buttons:
+
+```typescript packages/core/src/page-tree/utils.ts
+export function findNeighbour(
+  tree: PageTree.Root,
+  url: string,
+): {
+  previous?: PageTree.Item;
+  next?: PageTree.Item;
+} {
+  const list = flattenTree(tree.children);
+  const idx = list.findIndex((item) => item.url === url);
+  if (idx === -1) return {};
+
+  return {
+    previous: list[idx - 1],
+    next: list[idx + 1],
+  };
+}
+```
+
+### Find Siblings
+
+```typescript packages/core/src/page-tree/utils.ts
+export function findSiblings(
+  tree: PageTree.Root,
+  url: string,
+): PageTree.Node[] {
+  const parent = findParent(tree, url);
+  if (!parent) return [];
+
+  return parent.children.filter(
+    (item) => item.type !== 'page' || item.url !== url
+  );
+}
+```
+
+### Visit Tree
+
+Perform depth-first search with transformations:
+
+```typescript packages/core/src/page-tree/utils.ts
+export function visit<Root extends PageTree.Node | PageTree.Root>(
+  root: Root,
+  visitor: (node: PageTree.Node | PageTree.Root, parent?) => 'skip' | 'break' | void,
+): Root {
+  function onNode(node, parent?) {
+    const result = visitor(node, parent);
+    if (result === 'skip') return node;  // Skip children
+    if (result === 'break') throw VisitBreak;  // Stop traversal
+
+    if ('children' in node) {
+      for (let i = 0; i < node.children.length; i++) {
+        node.children[i] = onNode(node.children[i], node);
+      }
+    }
+
+    return node;
+  }
+
+  return onNode(root);
+}
+```
+
+## Transformers
+
+Plugins can transform the page tree during generation:
+
+```typescript packages/core/src/source/page-tree/builder.ts
+export interface PageTreeTransformer<Config = SourceConfig> {
+  file?: (
+    this: PageTreeBuilderContext<Config>,
+    node: PageTree.Item,
+    filePath?: string,
+  ) => PageTree.Item;
+  
+  folder?: (
+    this: PageTreeBuilderContext<Config>,
+    node: PageTree.Folder,
+    folderPath: string,
+    metaPath?: string,
+  ) => PageTree.Folder;
+  
+  separator?: (
+    this: PageTreeBuilderContext<Config>,
+    node: PageTree.Separator,
+  ) => PageTree.Separator;
+  
+  root?: (
+    this: PageTreeBuilderContext<Config>,
+    node: PageTree.Root,
+  ) => PageTree.Root;
+}
+```
+
+### Example: Status Badges
+
+```typescript
+const statusTransformer: PageTreeTransformer = {
+  file(node, filePath) {
+    const page = this.storage.read(filePath);
+    if (page?.data.status) {
+      node.name = (
+        <>
+          {node.name}
+          <Badge>{page.data.status}</Badge>
+        </>
+      );
+    }
+    return node;
+  },
+};
+```
+
+## Fallback Trees
+
+For internationalization, Fumadocs supports fallback trees:
+
+```typescript packages/core/src/page-tree/definitions.ts
+export interface Root {
+  name: ReactNode;
+  children: Node[];
+  fallback?: Root;  // Pages from fallback locale
+}
+```
+
+When a page doesn't exist in the current locale, the fallback tree is searched:
+
+```typescript
+const tree = {
+  name: 'Docs (French)',
+  children: [
+    { name: 'Introduction', url: '/fr/introduction' },
+  ],
+  fallback: {
+    name: 'Docs (English)',
+    children: [
+      { name: 'Introduction', url: '/introduction' },
+      { name: 'Advanced Guide', url: '/advanced' },  // Not translated
+    ],
+  },
+};
+```
+
+## Serialization
+
+For non-RSC environments, serialize React nodes to strings:
+
+```typescript packages/core/src/source/loader.ts
+async serializePageTree(tree: PageTree.Root): Promise<SerializedPageTree> {
+  const { renderToString } = await import('react-dom/server.edge');
+
+  return visit(tree, (node) => {
+    node = { ...node };
+    if ('icon' in node && node.icon) {
+      node.icon = renderToString(node.icon);
+    }
+    if (node.name) {
+      node.name = renderToString(node.name);
+    }
+    return node;
+  });
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Routing" icon="route" href="/concepts/routing">
+    Learn about URL generation and routing
+  </Card>
+  <Card title="Navigation Components" icon="bars" href="/ui/navigation">
+    Build navigation UIs with page trees
+  </Card>
+  <Card title="Internationalization" icon="globe" href="/advanced/i18n">
+    Configure multi-language documentation
+  </Card>
+  <Card title="Custom Transformers" icon="wand-magic-sparkles" href="/advanced/transformers">
+    Create custom page tree transformers
+  </Card>
+</CardGroup>

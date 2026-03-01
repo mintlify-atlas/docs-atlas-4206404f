@@ -1,0 +1,370 @@
+---
+title: Layouts
+description: Layout components for building documentation sites with Fumadocs UI
+---
+
+## DocsLayout
+
+The main layout component for documentation pages with sidebar navigation.
+
+```tsx
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+```
+
+### Props
+
+<ParamField path="tree" type="PageTree.Root" required>
+  The page tree structure for navigation
+</ParamField>
+
+<ParamField path="nav" type="NavOptions">
+  Navigation bar configuration
+  
+  - `enabled` - Show/hide navigation (default: `true`)
+  - `component` - Replace default navigation
+  - `title` - Navigation title
+  - `url` - Title link URL (default: `/`)
+  - `transparentMode` - Transparent background mode: `'always'`, `'top'`, or `'none'`
+  - `children` - Additional nav content
+</ParamField>
+
+<ParamField path="sidebar" type="SidebarOptions">
+  Sidebar configuration
+  
+  - `enabled` - Show/hide sidebar (default: `true`)
+  - `component` - Replace entire sidebar
+  - `components` - Replace individual sidebar components
+  - `tabs` - Sidebar tabs configuration or array of tabs
+  - `banner` - Content above sidebar tree
+  - `footer` - Content below sidebar tree
+  - `collapsible` - Allow collapsing sidebar on desktop (default: `true`)
+  - `defaultOpenLevel` - Default folder open level
+  - `prefetch` - Enable link prefetching
+</ParamField>
+
+<ParamField path="tabMode" type="'top' | 'auto'">
+  Tab display mode (default: `'auto'`)
+  
+  - `'top'` - Show tabs at the top
+  - `'auto'` - Show tabs in sidebar dropdown
+</ParamField>
+
+<ParamField path="searchToggle" type="object">
+  Search toggle configuration
+  
+  - `enabled` - Show/hide search (default: `true`)
+  - `components.sm` - Custom small screen search toggle
+  - `components.lg` - Custom large screen search toggle
+</ParamField>
+
+<ParamField path="themeSwitch" type="object">
+  Theme switcher configuration
+  
+  - `enabled` - Show/hide theme switch (default: `true`)
+  - `component` - Custom theme switch component
+  - `mode` - Theme mode: `'light-dark'` or `'light-dark-system'`
+</ParamField>
+
+<ParamField path="i18n" type="boolean | I18nConfig">
+  Enable internationalization (default: `false`)
+</ParamField>
+
+<ParamField path="links" type="LinkItemType[]">
+  Navigation links array
+</ParamField>
+
+<ParamField path="githubUrl" type="string">
+  GitHub repository URL (automatically adds GitHub icon link)
+</ParamField>
+
+<ParamField path="containerProps" type="HTMLAttributes<HTMLDivElement>">
+  Props for the root container div
+</ParamField>
+
+### Usage
+
+```tsx
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+import { pageTree } from '@/lib/source';
+
+export default function Layout({ children }) {
+  return (
+    <DocsLayout
+      tree={pageTree}
+      nav={{
+        title: 'My Documentation',
+        url: '/'
+      }}
+      sidebar={{
+        defaultOpenLevel: 1,
+        banner: <div>Important Notice</div>
+      }}
+      githubUrl="https://github.com/user/repo"
+    >
+      {children}
+    </DocsLayout>
+  );
+}
+```
+
+---
+
+## DocsPage
+
+Page layout component for individual documentation pages.
+
+```tsx
+import { DocsPage } from 'fumadocs-ui/layouts/docs/page';
+```
+
+### Props
+
+<ParamField path="toc" type="TOCItemType[]">
+  Table of contents items
+</ParamField>
+
+<ParamField path="full" type="boolean">
+  Extend page to fill all available space (default: `false`)
+</ParamField>
+
+<ParamField path="breadcrumb" type="object">
+  Breadcrumb configuration
+  
+  - `enabled` - Show/hide breadcrumb (default: `true`)
+  - `component` - Replace breadcrumb component
+</ParamField>
+
+<ParamField path="footer" type="object">
+  Footer navigation configuration
+  
+  - `enabled` - Show/hide footer (default: `true`)
+  - `component` - Replace footer component
+  - `children` - Additional footer content
+</ParamField>
+
+<ParamField path="tableOfContent" type="object">
+  Desktop table of contents configuration
+  
+  - `enabled` - Show/hide TOC
+  - `component` - Replace TOC component
+  - `header` - Content before TOC
+  - `footer` - Content after TOC
+  - `style` - TOC style: `'normal'` or `'clerk'` (default: `'normal'`)
+  - `single` - Single active heading mode
+</ParamField>
+
+<ParamField path="tableOfContentPopover" type="object">
+  Mobile TOC popover configuration (same options as `tableOfContent` except `single`)
+</ParamField>
+
+<ParamField path="className" type="string">
+  CSS class for the `#nd-page` container
+</ParamField>
+
+### Usage
+
+```tsx
+import { DocsPage, DocsBody, DocsTitle, DocsDescription } from 'fumadocs-ui/layouts/docs/page';
+
+export default function Page() {
+  return (
+    <DocsPage toc={toc}>
+      <DocsTitle>Getting Started</DocsTitle>
+      <DocsDescription>
+        Learn how to get started with our product
+      </DocsDescription>
+      <DocsBody>
+        {/* Your content */}
+      </DocsBody>
+    </DocsPage>
+  );
+}
+```
+
+---
+
+## DocsBody
+
+Adds typography styles to page content.
+
+```tsx
+import { DocsBody } from 'fumadocs-ui/layouts/docs/page';
+```
+
+### Props
+
+Extends `HTMLAttributes<HTMLDivElement>`
+
+### Usage
+
+```tsx
+<DocsBody>
+  <h2>Content with typography styles</h2>
+  <p>Automatically styled content</p>
+</DocsBody>
+```
+
+---
+
+## DocsTitle
+
+Page title component with consistent styling.
+
+```tsx
+import { DocsTitle } from 'fumadocs-ui/layouts/docs/page';
+```
+
+### Props
+
+Extends `HTMLAttributes<HTMLHeadingElement>`
+
+---
+
+## DocsDescription
+
+Page description component.
+
+```tsx
+import { DocsDescription } from 'fumadocs-ui/layouts/docs/page';
+```
+
+### Props
+
+Extends `HTMLAttributes<HTMLParagraphElement>`
+
+### Usage
+
+```tsx
+<DocsDescription>
+  A brief description of the page content
+</DocsDescription>
+```
+
+---
+
+## EditOnGitHub
+
+Button component for editing page on GitHub.
+
+```tsx
+import { EditOnGitHub } from 'fumadocs-ui/layouts/docs/page';
+```
+
+### Props
+
+Extends `ComponentProps<'a'>`
+
+### Usage
+
+```tsx
+<EditOnGitHub href="https://github.com/user/repo/blob/main/content/docs/page.mdx" />
+```
+
+---
+
+## HomeLayout
+
+Layout for landing/home pages.
+
+```tsx
+import { HomeLayout } from 'fumadocs-ui/layouts/home';
+```
+
+### Props
+
+<ParamField path="nav" type="NavOptions">
+  Navigation configuration (same as DocsLayout)
+  
+  Additional option:
+  - `enableHoverToOpen` - Open mobile menu on hover
+</ParamField>
+
+<ParamField path="links" type="LinkItemType[]">
+  Navigation links
+</ParamField>
+
+<ParamField path="githubUrl" type="string">
+  GitHub repository URL
+</ParamField>
+
+<ParamField path="i18n" type="boolean | I18nConfig">
+  Enable internationalization
+</ParamField>
+
+<ParamField path="themeSwitch" type="object">
+  Theme switcher configuration
+</ParamField>
+
+<ParamField path="searchToggle" type="object">
+  Search toggle configuration
+</ParamField>
+
+### Usage
+
+```tsx
+import { HomeLayout } from 'fumadocs-ui/layouts/home';
+
+export default function Home() {
+  return (
+    <HomeLayout
+      nav={{
+        title: 'My Project',
+        enableHoverToOpen: true
+      }}
+      links={[
+        { type: 'main', url: '/docs', text: 'Documentation' },
+        { type: 'main', url: '/blog', text: 'Blog' }
+      ]}
+    >
+      {/* Hero section and content */}
+    </HomeLayout>
+  );
+}
+```
+
+---
+
+## Notebook Layout
+
+Alternative documentation layout with navbar-based navigation.
+
+```tsx
+import { DocsLayout } from 'fumadocs-ui/layouts/notebook';
+```
+
+### Props
+
+Similar to `DocsLayout` with additional options:
+
+<ParamField path="tabMode" type="'sidebar' | 'navbar'">
+  Tab display location (default: `'sidebar'`)
+  
+  - `'sidebar'` - Show tabs in sidebar
+  - `'navbar'` - Show tabs in navbar
+</ParamField>
+
+<ParamField path="nav.mode" type="'top' | 'auto'">
+  Navigation mode (default: `'auto'`)
+  
+  - `'top'` - Always show in navbar
+  - `'auto'` - Show in sidebar on desktop, navbar on mobile
+</ParamField>
+
+### Usage
+
+```tsx
+import { DocsLayout } from 'fumadocs-ui/layouts/notebook';
+import { pageTree } from '@/lib/source';
+
+export default function Layout({ children }) {
+  return (
+    <DocsLayout
+      tree={pageTree}
+      tabMode="navbar"
+      nav={{ mode: 'top' }}
+    >
+      {children}
+    </DocsLayout>
+  );
+}
+```

@@ -1,0 +1,589 @@
+---
+title: Plugin Configuration
+description: Configure remark and rehype plugins for MDX processing
+---
+
+Fumadocs provides a comprehensive set of remark and rehype plugins that can be configured and customized.
+
+## Plugin Exports
+
+All plugins are exported from `fumadocs-core/mdx-plugins`:
+
+```ts title="packages/core/src/mdx-plugins/index.ts"
+export * from './remark-gfm';
+export * from './rehype-code';
+export * from './remark-image';
+export * from './remark-structure';
+export * from './remark-heading';
+export * from './remark-admonition';
+export * from './remark-directive-admonition';
+export * from './rehype-toc';
+export * from './remark-code-tab';
+export * from './remark-steps';
+export * from './remark-npm';
+export * from './codeblock-utils';
+export { remarkMdxFiles } from './remark-mdx-files';
+export * from './remark-mdx-mermaid';
+export * from './remark-feedback-block';
+```
+
+## Remark Plugins
+
+### remarkHeading
+
+Generate heading IDs and extract table of contents.
+
+```ts
+import { remarkHeading } from 'fumadocs-core/mdx-plugins';
+
+interface RemarkHeadingOptions {
+  // Custom slug generation
+  slug?: (root: Root, heading: Heading, text: string) => string;
+  
+  // Allow custom IDs via [#id] syntax
+  customId?: boolean; // default: true
+  
+  // Generate TOC data
+  generateToc?: boolean; // default: true
+}
+
+remarkPlugins: [
+  [remarkHeading, {
+    customId: true,
+    generateToc: true,
+  }],
+]
+```
+
+**Implementation**: `/packages/core/src/mdx-plugins/remark-heading.ts:41`
+
+**Features**:
+- Automatic slug generation using `github-slugger`
+- Custom ID syntax: `## Title [#custom-id]`
+- TOC data attached to `file.data.toc`
+
+### remarkStructure
+
+Extract structured content for search indexing.
+
+```ts
+import { remarkStructure } from 'fumadocs-core/mdx-plugins';
+
+interface StructureOptions {
+  // Node types to extract
+  types?: string[] | ((node: Nodes) => boolean);
+  
+  // Export as variable
+  exportAs?: string | boolean;
+  
+  // Custom stringifier
+  stringify?: Stringifier | StringifyOptions;
+  
+  // MDX element handling
+  mdxTypes?: (node: MdxJsxFlowElement) => boolean;
+}
+
+remarkPlugins: [
+  [remarkStructure, {
+    types: ['heading', 'paragraph', 'blockquote'],
+    exportAs: 'structuredData',
+    stringify: {
+      filterElement: (node) => {
+        // Include Callout components
+        if (node.type === 'mdxJsxFlowElement') {
+          return node.name === 'Callout';
+        }
+        return true;
+      },
+    },
+  }],
+]
+```
+
+**Implementation**: `/packages/core/src/mdx-plugins/remark-structure.ts:155`
+
+**Default Types**:
+```ts
+types: ['heading', 'paragraph', 'blockquote', 'tableCell', 'mdxJsxFlowElement']
+```
+
+### remarkImage
+
+Optimize images for Next.js.
+
+```ts
+import { remarkImage } from 'fumadocs-core/mdx-plugins';
+
+interface RemarkImageOptions {
+  // Public directory or base URL
+  publicDir?: string;
+  
+  // Placeholder type for local images
+  placeholder?: 'blur' | 'none'; // default: 'blur'
+  
+  // Error handling
+  onError?: 'error' | 'hide' | 'ignore' | ((error: Error) => void);
+  
+  // Use import statements
+  useImport?: boolean; // default: true
+  
+  // Fetch external image sizes
+  external?: boolean | {
+    timeout?: number;
+  };
+}
+
+remarkPlugins: [
+  [remarkImage, {
+    publicDir: './public',
+    placeholder: 'blur',
+    useImport: true,
+    external: {
+      timeout: 5000,
+    },
+    onError: 'error',
+  }],
+]
+```
+
+**Implementation**: `/packages/core/src/mdx-plugins/remark-image.ts:82`
+
+**Features**:
+- Automatic width/height detection
+- Image imports for bundler optimization
+- Blur placeholder for JPEG, PNG, WebP, AVIF
+- External image size fetching
+
+### remarkCodeTab
+
+Create tabbed code blocks.
+
+```ts
+import { remarkCodeTab } from 'fumadocs-core/mdx-plugins';
+
+interface RemarkCodeTabOptions {
+  // Tab component type
+  Tabs?: 'CodeBlockTabs' | 'Tabs';
+  
+  // Parse MDX in tab values
+  parseMdx?: boolean; // default: false
+}
+
+remarkPlugins: [
+  [remarkCodeTab, {
+    Tabs: 'CodeBlockTabs',
+    parseMdx: false,
+  }],
+]
+```
+
+**Implementation**: `/packages/core/src/mdx-plugins/remark-code-tab.ts:178`
+
+**Usage**:
+```md
+```js tab="JavaScript"
+const x = 1;
+```
+
+```ts tab="TypeScript"
+const x: number = 1;
+```
+```
+
+### remarkSteps
+
+Convert numbered headings to step sequences.
+
+```ts
+import { remarkSteps } from 'fumadocs-core/mdx-plugins';
+
+interface RemarkStepsOptions {
+  // Container class name
+  steps?: string; // default: 'fd-steps'
+  
+  // Individual step class name
+  step?: string; // default: 'fd-step'
+}
+
+remarkPlugins: [
+  [remarkSteps, {
+    steps: 'fd-steps',
+    step: 'fd-step',
+  }],
+]
+```
+
+**Implementation**: `/packages/core/src/mdx-plugins/remark-steps.ts:27`
+
+**Pattern**: Headings starting with `1. `, `2. `, etc.
+
+### remarkDirectiveAdmonition
+
+Directive-based admonitions (recommended).
+
+```ts
+import { remarkDirectiveAdmonition } from 'fumadocs-core/mdx-plugins';
+import remarkDirective from 'remark-directive';
+
+interface RemarkDirectiveAdmonitionOptions {
+  // Component tag names
+  tags?: {
+    CalloutContainer?: string;
+    CalloutTitle?: string;
+    CalloutDescription?: string;
+  };
+  
+  // Type mappings
+  types?: Record<string, string>;
+}
+
+remarkPlugins: [
+  remarkDirective,
+  [remarkDirectiveAdmonition, {
+    tags: {
+      CalloutContainer: 'Callout',
+      CalloutTitle: 'CalloutTitle',
+      CalloutDescription: 'CalloutDescription',
+    },
+    types: {
+      note: 'info',
+      tip: 'info',
+      warning: 'warning',
+      danger: 'error',
+    },
+  }],
+]
+```
+
+**Implementation**: `/packages/core/src/mdx-plugins/remark-directive-admonition.ts:29`
+
+**Requires**: `remark-directive` package
+
+### remarkAdmonition
+
+Legacy Docusaurus-style admonitions (deprecated).
+
+```ts
+import { remarkAdmonition } from 'fumadocs-core/mdx-plugins';
+
+interface RemarkAdmonitionOptions {
+  tag?: string; // default: ':::'
+  typeMap?: Record<string, string>;
+}
+
+remarkPlugins: [
+  [remarkAdmonition, {
+    tag: ':::',
+    typeMap: {
+      info: 'info',
+      warn: 'warn',
+      note: 'info',
+      tip: 'info',
+      warning: 'warn',
+      danger: 'error',
+    },
+  }],
+]
+```
+
+**Implementation**: `/packages/core/src/mdx-plugins/remark-admonition.ts:22`
+
+**Note**: Use `remarkDirectiveAdmonition` instead for better syntax support.
+
+## Rehype Plugins
+
+### rehypeCode
+
+Syntax highlighting with Shiki.
+
+```ts
+import { rehypeCode } from 'fumadocs-core/mdx-plugins';
+
+interface RehypeCodeOptions {
+  // Regex engine
+  engine?: 'js' | 'oniguruma'; // default: 'js'
+  
+  // Themes
+  themes?: {
+    light: string;
+    dark: string;
+  };
+  theme?: string;
+  
+  // Languages to preload
+  langs?: string[];
+  
+  // Load languages on-demand
+  lazy?: boolean; // default: true
+  
+  // Default language for unknown code blocks
+  defaultLanguage?: string; // default: 'plaintext'
+  
+  // Shiki transformers
+  transformers?: ShikiTransformer[];
+  
+  // Filter meta string
+  filterMetaString?: (metaString: string) => string;
+  
+  // Add language icons
+  icon?: IconOptions | false;
+  
+  // Wrap in Tab component
+  tab?: boolean; // default: true
+}
+
+rehypePlugins: [
+  [rehypeCode, {
+    engine: 'js',
+    themes: {
+      light: 'github-light',
+      dark: 'github-dark',
+    },
+    lazy: true,
+    defaultLanguage: 'plaintext',
+  }],
+]
+```
+
+**Implementation**: `/packages/core/src/mdx-plugins/rehype-code.ts:18`
+
+**Default Options** (from `/packages/core/src/mdx-plugins/rehype-code.core.ts:19`):
+```ts
+{
+  lazy: true,
+  defaultColor: false,
+  defaultLanguage: 'plaintext',
+  transformers: [
+    transformerNotationHighlight(),
+    transformerNotationWordHighlight(),
+    transformerNotationDiff(),
+    transformerNotationFocus(),
+  ],
+}
+```
+
+**Lazy Loading**: When enabled, only `['js', 'jsx', 'ts', 'tsx']` are preloaded. Other languages load on-demand.
+
+## Code Block Metadata
+
+Code blocks support rich metadata parsing.
+
+### Meta String Parsing
+
+From `/packages/core/src/mdx-plugins/codeblock-utils.ts:97`:
+
+```ts
+function parseCodeBlockAttributes(
+  meta: string,
+  allowedNames?: string[],
+): CodeBlockAttributes {
+  // Parses: title="hello" tab='world' lineNumbers
+  // Returns: { attributes: { title: 'hello', tab: 'world', lineNumbers: null } }
+}
+```
+
+### Supported Attributes
+
+```md
+```js title="example.js" lineNumbers lineNumbers=5
+function hello() {
+  return 'world';
+}
+```
+```
+
+Parsed as:
+```ts
+{
+  title: 'example.js',
+  'data-line-numbers': true,
+  'data-line-numbers-start': 5,
+}
+```
+
+## Utility Functions
+
+### parseCodeBlockAttributes
+
+Parse Fumadocs-style code block attributes:
+
+```ts
+import { parseCodeBlockAttributes } from 'fumadocs-core/mdx-plugins';
+
+const result = parseCodeBlockAttributes(
+  'title="example.ts" tab="TypeScript"',
+  ['title', 'tab'], // allowed names
+);
+
+// result = {
+//   attributes: { title: 'example.ts', tab: 'TypeScript' },
+//   rest: '',
+// }
+```
+
+### generateCodeBlockTabs
+
+Programmatically create code block tabs:
+
+```ts
+import { generateCodeBlockTabs } from 'fumadocs-core/mdx-plugins';
+
+const tabs = generateCodeBlockTabs({
+  defaultValue: 'js',
+  persist: { id: 'lang-tabs' },
+  triggers: [
+    { value: 'js', children: [{ type: 'text', value: 'JavaScript' }] },
+    { value: 'ts', children: [{ type: 'text', value: 'TypeScript' }] },
+  ],
+  tabs: [
+    { value: 'js', children: [/* code block nodes */] },
+    { value: 'ts', children: [/* code block nodes */] },
+  ],
+});
+```
+
+## Configuration Patterns
+
+### Minimal Setup
+
+```ts title="source.config.ts"
+import { defineConfig } from 'fumadocs-mdx/config';
+import { rehypeCode, remarkHeading } from 'fumadocs-core/mdx-plugins';
+
+export default defineConfig({
+  mdxOptions: {
+    remarkPlugins: [remarkHeading],
+    rehypePlugins: [rehypeCode],
+  },
+});
+```
+
+### Full-Featured Setup
+
+```ts title="source.config.ts"
+import { defineConfig } from 'fumadocs-mdx/config';
+import {
+  rehypeCode,
+  remarkHeading,
+  remarkImage,
+  remarkStructure,
+  remarkDirectiveAdmonition,
+  remarkCodeTab,
+  remarkSteps,
+} from 'fumadocs-core/mdx-plugins';
+import remarkDirective from 'remark-directive';
+
+export default defineConfig({
+  mdxOptions: {
+    remarkPlugins: [
+      remarkHeading,
+      remarkImage,
+      remarkDirective,
+      remarkDirectiveAdmonition,
+      remarkCodeTab,
+      remarkSteps,
+      [remarkStructure, { exportAs: 'structuredData' }],
+    ],
+    rehypePlugins: [
+      [rehypeCode, {
+        themes: {
+          light: 'github-light',
+          dark: 'github-dark',
+        },
+      }],
+    ],
+  },
+});
+```
+
+### Custom Transformers
+
+```ts
+import { rehypeCode } from 'fumadocs-core/mdx-plugins';
+import type { ShikiTransformer } from 'shiki';
+
+const customTransformer: ShikiTransformer = {
+  name: 'custom-transformer',
+  preprocess(code, options) {
+    // Modify code before highlighting
+    return code;
+  },
+  line(node, line) {
+    // Modify each line
+    node.properties.line = line;
+  },
+};
+
+rehypePlugins: [
+  [rehypeCode, {
+    transformers: [customTransformer],
+  }],
+]
+```
+
+## Plugin Order
+
+Plugin order matters! Recommended order:
+
+### Remark (Markdown → MDX)
+
+1. `remarkHeading` - Generate heading IDs first
+2. `remarkImage` - Process images
+3. `remarkDirective` - Enable directive syntax
+4. `remarkDirectiveAdmonition` - Process admonitions
+5. `remarkCodeTab` - Group code blocks into tabs
+6. `remarkSteps` - Convert numbered headings
+7. `remarkStructure` - Extract content (should be last)
+
+### Rehype (HTML transformations)
+
+1. `rehypeCode` - Syntax highlighting
+2. `rehypeToc` - Table of contents rendering
+
+## Performance Tips
+
+### Enable Lazy Loading
+
+```ts
+rehypePlugins: [
+  [rehypeCode, {
+    lazy: true, // Only preload common languages
+    langs: ['js', 'jsx', 'ts', 'tsx'],
+  }],
+]
+```
+
+### Use JavaScript Engine
+
+```ts
+rehypePlugins: [
+  [rehypeCode, {
+    engine: 'js', // Faster than 'oniguruma' WASM
+  }],
+]
+```
+
+### Optimize Image Processing
+
+```ts
+remarkPlugins: [
+  [remarkImage, {
+    external: false, // Skip external image fetching
+    useImport: true, // Let bundler handle optimization
+  }],
+]
+```
+
+## TypeScript Types
+
+All plugins are fully typed. Import types for custom configurations:
+
+```ts
+import type {
+  RemarkHeadingOptions,
+  RemarkImageOptions,
+  RemarkCodeTabOptions,
+  RehypeCodeOptions,
+  StructureOptions,
+} from 'fumadocs-core/mdx-plugins';
+```

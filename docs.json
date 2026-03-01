@@ -1,122 +1,181 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Fumadocs",
+  "theme": "palm",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#6366F1",
+    "light": "#818CF8",
+    "dark": "#4F46E5"
   },
-  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/fuma-nama/fumadocs"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/fuma-nama/fumadocs"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "introduction",
+              "quick-start",
+              "what-is-fumadocs",
+              "installation"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "concepts/architecture",
+              "concepts/content-sources",
+              "concepts/page-tree",
+              "concepts/routing"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Framework Integration",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "frameworks/nextjs",
+              "frameworks/react-router",
+              "frameworks/tanstack-router",
+              "frameworks/waku"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Content Sources",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "content/fumadocs-mdx",
+              "content/content-collections",
+              "content/custom-source"
+            ]
+          },
+          {
+            "group": "UI Components",
+            "pages": [
+              "ui/overview",
+              "ui/layouts",
+              "ui/components",
+              "ui/theming",
+              "ui/customization"
+            ]
+          },
+          {
+            "group": "Markdown & MDX",
+            "pages": [
+              "markdown/overview",
+              "markdown/syntax",
+              "markdown/plugins",
+              "markdown/code-blocks",
+              "markdown/twoslash"
+            ]
+          },
+          {
+            "group": "Features",
+            "pages": [
+              "features/search",
+              "features/internationalization",
+              "features/navigation",
+              "features/table-of-contents",
+              "features/breadcrumbs"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/openapi",
+              "integrations/typescript-docgen",
+              "integrations/obsidian",
+              "integrations/og-images"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/overview",
+              "deployment/static-export",
+              "deployment/vercel",
+              "deployment/cloudflare"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "CLI Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "CLI",
             "pages": [
-              "api-reference/introduction"
+              "cli/overview",
+              "cli/commands",
+              "cli/configuration"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core API",
+            "pages": [
+              "api/core/source",
+              "api/core/page-tree",
+              "api/core/search",
+              "api/core/toc",
+              "api/core/breadcrumb"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "MDX API",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api/mdx/loader",
+              "api/mdx/config",
+              "api/mdx/plugins"
+            ]
+          },
+          {
+            "group": "UI API",
+            "pages": [
+              "api/ui/layouts",
+              "api/ui/components",
+              "api/ui/contexts",
+              "api/ui/utilities"
+            ]
+          },
+          {
+            "group": "OpenAPI",
+            "pages": [
+              "api/openapi/generator",
+              "api/openapi/ui",
+              "api/openapi/playground"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Tutorials",
+            "pages": [
+              "guides/creating-first-doc",
+              "guides/customizing-theme",
+              "guides/adding-search",
+              "guides/multi-docs-setup",
+              "guides/migration-guide"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }
